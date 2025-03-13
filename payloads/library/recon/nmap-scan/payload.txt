@@ -225,7 +225,10 @@ execute_scan() {
   fi
 
   NMAP_COMMAND="$NMAP_SCAN $SCAN_TARGET --max-retries $MAX_RETRIES --host-timeout $HOST_TIMEOUT --stats-every 1s"
-  SCREEN_WRITE "Starting nmap with $NMAP_COMMAND"
+  SCREEN_WRITE "=Starting nmap="
+  SCREEN_WRITE "$NMAP_SCAN"
+  SCREEN_WRITE "$SCAN_TARGET"
+  SCREEN_WRITE "$MAX_RETRIES $HOST_TIMEOUT"
 
   # Wait for Ethernet link
   WAIT_FOR_LINK
@@ -245,11 +248,6 @@ execute_scan() {
       set_progress 100
       break
     fi
-    if [ "$COMPLETE" = "100" ];then
-      set_progress 100
-      break
-    fi
-    logger -t PAYLOAD "COMPLETE:|$COMPLETE|"
     set_progress $COMPLETE
   done
   results_alert
@@ -258,55 +256,80 @@ execute_scan() {
 
 results_alert() {
   LED FINISH
-  case "$SCAN_TYPE" in
-    "List")
+
+
+  logger -t "nmap-payload" "Results options:"
+  logger -t "nmap-payload" "NMAP_SCAN: $NMAP_SCAN"
+  logger -t "nmap-payload" "HOST_TIMEOUT: $HOST_TIMEOUT"
+  logger -t "nmap-payload" "MAX_RETRIES: $MAX_RETRIES"
+  logger -t "nmap-payload" "SCAN_NETMODE: $SCAN_NETMODE"
+  logger -t "nmap-payload" "SCAN_TARGET: $SCAN_TARGET"
+
+
+  case "$NMAP_SCAN" in
+    # List
+    "-sL")
       HOSTS_FOUND="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep "Nmap scan report for" | grep "(" | wc -l)"
-      ALERT "Scan $COUNT Done. \nHost count $HOST_FOUND" 2
-      ALERT "Scan $COUNT Done. \nHost count $HOST_FOUND" -1 false
+      ALERT "Scan $COUNT Done. \nHost count $HOSTS_FOUND" 2
+      ALERT "Scan $COUNT Done. \nHost count $HOSTS_FOUND" -1 false
     ;;
-    "Discovery")
+    # Discovery
+    "-sn")
       HOSTS_FOUND="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep "Nmap done" | awk -F '[()]' '{print $2}')"
       ALERT "Scan $COUNT Done. \n$HOSTS_FOUND" 2
       ALERT "Scan $COUNT Done. \n$HOSTS_FOUND" -1 false
     ;;
-    "Ping")  
+    # Ping
+    "-sP")  
       HOSTS_FOUND="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep "Nmap done" | awk -F '[()]' '{print $2}')"
       ALERT "Scan $COUNT Done. \n$HOSTS_FOUND" 2
       ALERT "Scan $COUNT Done. \n$HOSTS_FOUND" -1 false
     ;;
-    "Port")
-      if [ "$SCAN_TARGET" != "SUBNET" ]; then
-        PORTS_FOUND="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep tcp | grep open | wc -l)"
-        ALERT "Scan $COUNT Done. \nPorts open $PORTS_FOUND" 2
-        ALERT "Scan $COUNT Done. \nPorts open $PORTS_FOUND" -1 false
-      else
-        HOSTS_SCANNED="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep "Nmap done" | awk -F '[()]' '{print $2}  | awk '{print $1}'')"
-        ALERT "Scan $COUNT Done. \n$HOSTS_SCANNED" 2
-        ALERT "Scan $COUNT Done. \n$HOSTS_SCANNED" -1 false
-      fi
+    # Port
+    "-sS"* | "-p"*)
+      case "$SCAN_TARGET" in
+        */*)
+          HOSTS_SCANNED="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep "Nmap done" | awk -F '[()]' '{print $2}'  | awk '{print $1}')"
+          ALERT "Scan $COUNT Done. \n$HOSTS_SCANNED Scanned" 2
+          ALERT "Scan $COUNT Done. \n$HOSTS_SCANNED Scanned" -1 false
+        ;;
+        *)
+          PORTS_FOUND="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep tcp | grep open | wc -l)"
+          ALERT "Scan $COUNT Done. \nPorts open $PORTS_FOUND" 2
+          ALERT "Scan $COUNT Done. \nPorts open $PORTS_FOUND" -1 false
+        ;;
+      esac
     ;;
-    "Service") 
-      if [ "$SCAN_TARGET" != "SUBNET" ]; then
-        PORTS_FOUND="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep tcp | grep open | wc -l)"
-        ALERT "Scan $COUNT Done. \nPorts open $PORTS_FOUND" 2
-        ALERT "Scan $COUNT Done. \nPorts open $PORTS_FOUND" -1 false
-      else
-        HOSTS_SCANNED="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep "Nmap done" | awk -F '[()]' '{print $2}  | awk '{print $1}'')"
-        ALERT "Scan $COUNT Done. \n$HOSTS_SCANNED" 2
-        ALERT "Scan $COUNT Done. \n$HOSTS_SCANNED" -1 false
-      fi
+    # Service
+    "-sV"*) 
+      case "$SCAN_TARGET" in
+        */*)
+          HOSTS_SCANNED="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep "Nmap done" | awk -F '[()]' '{print $2}' | awk '{print $1}')"
+          ALERT "Scan $COUNT Done. \n$HOSTS_SCANNED Scanned" 2
+          ALERT "Scan $COUNT Done. \n$HOSTS_SCANNED Scanned" -1 false
+        ;;
+        *)
+          PORTS_FOUND="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep tcp | grep open | wc -l)"
+          ALERT "Scan $COUNT Done. \nPorts open $PORTS_FOUND" 2
+          ALERT "Scan $COUNT Done. \nPorts open $PORTS_FOUND" -1 false
+        ;;
+      esac
+    ;;
+    *)
+      ALERT "SCAN $COUNT DONE" 2
+      ALERT "SCAN $COUNT DONE" -1 false
     ;;
   esac
 
 
-  ALERT "Scan $COUNT Done" 2
+  #ALERT "Scan $COUNT Done" 2
   # TODO Display number of hosts found
-  show_results
+  #show_results
 }
 
 show_results() {
- case "$SCAN_TYPE" in
-    "List")
+ case "$NMAP_SCAN" in
+    "-sL")
       RESULTS="$(cat $LOOT_DIR/scan-$COUNT.txt | grep "Nmap scan report for" | grep '(')"
       while IFS= read -r line; do
         # Skip empty lines
@@ -333,6 +356,13 @@ show_results() {
   esac
 }
 
+
 get_config_options
+  logger -t "nmap-payload" "Startup options:"
+  logger -t "nmap-payload" "NMAP_SCAN: $NMAP_SCAN"
+  logger -t "nmap-payload" "HOST_TIMEOUT: $HOST_TIMEOUT"
+  logger -t "nmap-payload" "MAX_RETRIES: $MAX_RETRIES"
+  logger -t "nmap-payload" "SCAN_NETMODE: $SCAN_NETMODE"
+  logger -t "nmap-payload" "SCAN_TARGET: $SCAN_TARGET"
 initialize_menu
 start_menu
