@@ -19,28 +19,24 @@ get_config_options() {
   SCAN_TARGET="$(GET_PAYLOAD_CONFIG_OPTION SCAN_TARGET "SUBNET" $PROFILE)"
 }
 
-show_settings() {
-  case "$NMAP_SCAN" in
-    "-sL"*) OPT="Passive" ;;
-    "-sn"*) OPT="Ping" ;;
-    "-sV"*) OPT="Service" ;;
-    "-p"*|"-sS"*) OPT="Port" ;;
-  esac
-  ALERT "NETMODE:\n$SCAN_NETMODE\nTarget:\n$SCAN_TARGET\n\nScan: $OPT\nRetries: $MAX_RETRIES\nTimeout: $HOST_TIMEOUT" -1 false true
-}
-
 source /usr/lib/list_tools
 initialize_menu() {
   ADD_MENU_ITEM "Start Scan" "execute_scan"
-  ADD_MENU_ITEM "Show Options" "show_settings"
-  ADD_MENU_ITEM "Set Options" "menu_settings"
-  ADD_MENU_ITEM "Pick Profile" "render_menu_profile"
-  ADD_MENU_ITEM "Quit Payload" "EXIT_MENU"
+  ADD_MENU_ITEM "Scan Options" "menu_options"
+  ADD_MENU_ITEM "Profiles" "menu_profiles"
+  ADD_MENU_ITEM "Quit" "EXIT_MENU"
 
-  ADD_SUBMENU_ITEM "menu_settings" "Target" "set_target"
+  ADD_SUBMENU_ITEM "menu_profiles" "Load Profile" "render_menu_profile"
+  ADD_SUBMENU_ITEM "menu_profiles" "Save Profile" "menu_save_profile"
+  ADD_SUBMENU_ITEM "menu_profiles" "← Back"
+
+  ADD_SUBMENU_ITEM "menu_options" "Change Options" "menu_settings"
+  ADD_SUBMENU_ITEM "menu_options" "Show Options" "show_settings"
+  ADD_SUBMENU_ITEM "menu_options" "← Back"
+
   ADD_SUBMENU_ITEM "menu_settings" "Scan Type" "set_scan_type"
+  ADD_SUBMENU_ITEM "menu_settings" "Target" "set_target"
   ADD_SUBMENU_ITEM "menu_settings" "Advanced" "menu_settings_advanced"
-  ADD_SUBMENU_ITEM "menu_settings" "Save Profile" "menu_save_profile"
   ADD_SUBMENU_ITEM "menu_settings" "← Back"
 
   ADD_SUBMENU_ITEM "menu_settings_advanced" "NETMODE" "set_netmode"
@@ -53,8 +49,30 @@ initialize_menu() {
   ADD_SUBMENU_ITEM "menu_save_profile" "← Back"
 }
 
+show_settings() {
+  #ALERT "NETMODE:\n$SCAN_NETMODE\nTarget:\n$SCAN_TARGET\n\nScan: $OPT\nRetries: $MAX_RETRIES\nTimeout: $HOST_TIMEOUT" -1 false true
+  case "$NMAP_SCAN" in
+    "-sL"*) OPT_SCAN="Passive scan of " ;;
+    "-sn"*) OPT_SCAN="Ping scan of " ;;
+    "-sV"*) OPT_SCAN="Service scan of " ;;
+    "-p"*|"-sS"*) OPT_SCAN="Port scan of " ;;
+  esac
+  if [ "$SCAN_TARGET" = "SUBNET" ]; then
+    OPT_TARGET="entire subnet."
+  else
+    OPT_TARGET=$SCAN_TARGET
+  fi
+  RESP="$(OPTION_DIALOG "$OPT_SCAN $OPT_TARGET" "Back" "Advanced")"
+  case "$RESP" in
+    "Back") ;;
+    "Advanced")
+      ALERT "NETMODE:\n$SCAN_NETMODE\nTarget:\n$SCAN_TARGET\n\nScan: $NMAP_SCAN\nRetries: $MAX_RETRIES\nTimeout: $HOST_TIMEOUT" -1 false true
+    ;;
+  esac
+}
+
 save_as_new_profile() {
-  profile_name="$(TEXT_PICKER "Profile Name" "profile01" "abcdefghijklmnopqrstuvwxyz0123456789")"
+  profile_name="$(TEXT_PICKER "Profile Name" "profile01" "abcdefghijklmnopqrstuvwxyz_0123456789")"
   if [ "$profile_name" = "← Back" ]; then
     ALERT "Cancelled" 2 false
     return
@@ -266,6 +284,22 @@ static_ip() {
 execute_scan() {
   SCAN_NOW=0
   LED ATTACK
+
+  case "$NMAP_SCAN" in
+    "-sL"*) OPT_SCAN="Passive" ;;
+    "-sn"*) OPT_SCAN="Ping" ;;
+    "-sV"*) OPT_SCAN="Service" ;;
+    "-p"*|"-sS"*) OPT_SCAN="Port" ;;
+  esac
+  if [ "$SCAN_TARGET" = "SUBNET" ]; then
+    OPT_TARGET="Subnet"
+  else
+    OPT_TARGET=$SCAN_TARGET
+  fi
+  ALERT "Starting $OPT_SCAN scan of $OPT_TARGET" 2 false
+
+
+
   # Set loot scan number
   COUNT=$(($(ls -l $LOOT_DIR/*.txt | wc -l)+1))
 
@@ -311,7 +345,6 @@ execute_scan() {
   done
   results_alert
 }
-
 
 results_alert() {
   LED FINISH
@@ -453,7 +486,7 @@ show_results_ping() {
       ip="$(echo "$line" | grep "Nmap scan report for" | sed 's/Nmap scan report for '//g | sed 's/(//' | sed 's/)//' | awk '{if ($1 ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) print "noname", $0; else print $0}' | awk '{print $2}')"
       ADD_SUBMENU_ITEM "results" "$ip $hostname" "results_menu_${ip}"
       ADD_SUBMENU_ITEM "results_menu_${ip}" "$hostname" "noop"
-      ADD_SUBMENU_ITEM "results_menu_${ip}" "Set Target" "set_new_target" "${ip}"
+      ADD_SUBMENU_ITEM "results_menu_${ip}" "Scan Target" "set_new_target" "${ip}"
       ADD_SUBMENU_ITEM "results_menu_${ip}" "Back" "Back"
     done <<< "$RESULTS"
     ADD_SUBMENU_ITEM "results" "Back" "Back"
