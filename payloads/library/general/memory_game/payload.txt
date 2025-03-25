@@ -1,8 +1,5 @@
 #!/bin/bash
-# Title: Memory Game
-# Author: Hak5Darren
-# Props: Korben
-# Description: Get a high score by repeating the pattern shown. Difficulty increases round by round.
+LED OFF
 
 # Arrow to button input map
 map_arrow() {
@@ -19,8 +16,8 @@ ROUND=1
 # Round delay and pattern length
 get_round_config() {
   case $1 in
-    1) delay=5; length=6; TAUNT="" ;;
-    2) delay=4; length=6; TAUNT=":)" ;;
+    1) delay=5; length=4; TAUNT="" ;;
+    2) delay=4; length=5; TAUNT=":)" ;;
     3) delay=3; length=6; TAUNT="Ok!" ;;
     4) delay=6; length=7; TAUNT="Nice!" ;;
     5) delay=5; length=7; TAUNT="Niiice!" ;;
@@ -70,6 +67,9 @@ while true; do
 
   # Show round & countdown
   ALERT "$TAUNT \n Round $ROUND" 1 false
+
+  # Reset LED and countdown
+  LED OFF
   ALERT "3..." 1 false
   ALERT "2..." 1 false
   ALERT "1..." 1 false
@@ -99,8 +99,10 @@ while true; do
 
   # Success or fail
   if $correct; then
+    LED FINISH
     ROUND=$((ROUND + 1))
   else
+    LED FAIL
     ALERT "Game Over!\n Score: $((ROUND - 1))" -1 false
     RESP="$(OPTION_DIALOG "Play again?" " Yes " " No ")"
     case "$RESP" in
