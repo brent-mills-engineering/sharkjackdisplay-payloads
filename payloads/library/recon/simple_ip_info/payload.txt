@@ -3,9 +3,7 @@
 # Author: Hak5Darren
 # Description: Connects via DHCP and displays the obtained IP, gateway, and subnet.
 # Usage: Plug Shark Jack into target network. Once it has a DHCP lease, info displays.
-
 LED SETUP
-source /usr/lib/spinner_tools
 CREATE_SPINNER "Starting DHCP"
   NETMODE DHCP_CLIENT
 STOP_SPINNER
