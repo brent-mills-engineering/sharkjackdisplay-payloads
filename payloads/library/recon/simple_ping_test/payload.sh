@@ -5,7 +5,6 @@
 # Description: Pings $IP and shows basic results
 LED SETUP
 IP="8.8.8.8"
-source /usr/lib/spinner_tools
 CREATE_SPINNER "Starting DHCP"
   NETMODE DHCP_CLIENT
 STOP_SPINNER
