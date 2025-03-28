@@ -309,6 +309,6 @@ show_results(){
 
 get_config_options
 initialize_menu
-# leet ANSI art
+# 1337 ANSI art
 ALERT "                  ▐▀▌▐ ▌ ▐  ▄▄    ▐ ▌▐ █ ▐ ▐  ▀   ▐▄▌▐ ▌▌▐ ▌ ▄▄   ▐  ▐ ▌▐▐ ▐  ▐   ▐  ▐ ▌ █  ▀▄▀ " 1 false true
 START_MENU
