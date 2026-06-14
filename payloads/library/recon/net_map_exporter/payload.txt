@@ -524,7 +524,7 @@ CLEAR_SCREEN 2>/dev/null
 say "Map export done"
 [ "$DHCP_OK" -eq 0 ] && say "Passive only (no DHCP)"
 say "Switch: $SWITCH"
-say "Subnet: $CIDR"
 say "Hosts: $TOTAL_HOSTS"
-ALERT "Network map: $TOTAL_HOSTS hosts$([ "$DHCP_OK" -eq 0 ] && echo ' (passive only)')" 12 2>/dev/null
+say "Segments: $SEG_COUNT"
+ALERT "Network map: $TOTAL_HOSTS hosts across $SEG_COUNT segment(s)$([ "$DHCP_OK" -eq 0 ] && echo ' (passive only)')" 12 2>/dev/null
 exit 0
