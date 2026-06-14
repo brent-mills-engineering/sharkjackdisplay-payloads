@@ -5,6 +5,7 @@
 #  Target:      An authorized wired drop, scoping a new environment.
 #  Category:    recon / assessment
 #  Version:     1.0
+#  Firmware:    Tested on Shark Jack Display 1.0.1
 # ----------------------------------------------------------------------------
 #  WHAT IT DOES
 #    Sweeps the live hosts for the findings that actually drive a remediation
@@ -32,7 +33,7 @@ HOST_TIMEOUT="60s"
 SNMP_COMMUNITIES="public private"   # default strings to test (UDP/161)
 LOOT_BASE="/root/loot/posture"
 # VLAN-aware scanning: also tag onto and scan tagged VLANs seen on a trunk.
-SCAN_TAGGED_VLANS=0            # 1 = discover+scan tagged VLANs too. ACTIVE VLAN-
+SCAN_TAGGED_VLANS=0           # 1 = discover+scan tagged VLANs too. ACTIVE VLAN-
                               #     hopping; set 0 for client sites unless it is
                               #     authorized. No-op on a plain access port.
 VLAN_PROBE_IDS=""             # fallback VIDs if none are sniffed, e.g. "2 3 10"

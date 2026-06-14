@@ -8,8 +8,7 @@ against hosts with the relevant port open, so it stays reasonably quick.
 > assess, within the agreed scope and time window. Default-community SNMP testing
 > and SMB enumeration are standard assessment steps; stay within authorized
 > scope. Nothing is exfiltrated: all output stays on-device under
-> `/root/loot/posture/` until you retrieve it. See the Legal and Disclaimer
-> sections of the repository README.
+> `/root/loot/posture/` until you retrieve it.
 
 ## What it checks
 

@@ -5,7 +5,7 @@
 #  Target:      An authorized wired LAN reached via the RJ45 access port.
 #  Category:    recon
 #  Version:     1.0
-#  Firmware:    Shark Jack Display 1.0.1
+#  Firmware:    Tested on Shark Jack Display 1.0.1
 # ----------------------------------------------------------------------------
 #  WHAT IT DOES
 #    Plug into a wired drop, walk away, come back to a tidy loot report. In one
@@ -59,7 +59,7 @@ SCAN_TAGGED_VLANS=0             # 1 = also DISCOVER + SCAN hosts on tagged VLANs
                                 #     active VLAN-hopping: authorized engagements
                                 #     only. Off by default on purpose. (On a plain
                                 #     access port there are no tags, so it no-ops.)
-VLAN_PROBE_IDS=""              # fallback VIDs to try when NO tags are seen
+VLAN_PROBE_IDS=""               # fallback VIDs to try when NO tags are seen
                                 #     passively, e.g. "10 20 30". Empty = scan
                                 #     only the VLANs actually observed on the wire.
 
