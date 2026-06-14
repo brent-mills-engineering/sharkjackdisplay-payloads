@@ -35,13 +35,13 @@
 DHCP_WAIT_SECS=30
 NMAP_TIMING="-T4"
 HOST_TIMEOUT="120s"
-OS_DETECT=1                     # 1 = nmap -O (helps tell a server from a laptop)
-SNMP_LOOKUP=1                   # 1 = pull SNMP sysDescr (printer/switch firmware)
+OS_DETECT=1                   # 1 = nmap -O (helps tell a server from a laptop)
+SNMP_LOOKUP=1                 # 1 = pull SNMP sysDescr (printer/switch firmware)
 # Classification-signal ports (kept short for speed + signal).
 PORTSET="21,22,23,25,53,80,110,143,443,445,515,554,623,631,1883,1900,2375,2376,3000,3306,3389,5000,5060,5432,5900,6379,7547,8000,8080,8443,8888,9000,9100,9200,27017"
 LOOT_BASE="/root/loot/risky"
 # VLAN-aware scanning: also tag onto and scan tagged VLANs seen on a trunk.
-SCAN_TAGGED_VLANS=0            # 1 = discover+scan tagged VLANs too. ACTIVE VLAN-
+SCAN_TAGGED_VLANS=0           # 1 = discover+scan tagged VLANs too. ACTIVE VLAN-
                               #     hopping; set 0 for client sites unless it is
                               #     authorized. No-op on a plain access port.
 VLAN_PROBE_IDS=""             # fallback VIDs if none are sniffed, e.g. "2 3 10"

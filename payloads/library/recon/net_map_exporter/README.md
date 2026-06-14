@@ -10,7 +10,7 @@ subnet?"
 > runs nmap against the access subnet. Run only on networks you own or are
 > contracted to assess, within the agreed scope and time window. Nothing is
 > exfiltrated: all output stays on-device under `/root/loot/network_map/` until
-> you retrieve it. See the Legal and Disclaimer sections of the repository README.
+> you retrieve it.
 
 ## How it works
 

@@ -19,8 +19,7 @@ cameras themselves use.
 > **Authorized use only.** Passive capture: no probes, no scans, no DHCP. Run
 > only on networks you own or are contracted to assess, within the agreed scope
 > and time window. Nothing is exfiltrated: all output stays on-device under
-> `/root/loot/poe_survey/` until you retrieve it. See the Legal and Disclaimer
-> sections of the repository README.
+> `/root/loot/poe_survey/` until you retrieve it.
 
 ## What it reads
 

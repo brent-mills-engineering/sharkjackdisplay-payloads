@@ -13,8 +13,7 @@ production network.
 > one Ethernet port and has no uplink, so the device gets an address but no route
 > off the Shark Jack: it is isolated by construction and cannot reach the
 > production network. Nothing is exfiltrated: all output stays on-device under
-> `/root/loot/direct_host/` until you retrieve it. See the Legal and Disclaimer
-> sections of the repository README.
+> `/root/loot/direct_host/` until you retrieve it.
 
 ## How it works
 

@@ -35,7 +35,7 @@ NMAP_TIMING="-T4"
 HOST_TIMEOUT="60s"
 
 # VLAN traversal: discover + scan tagged VLANs and fold their hosts into the map.
-PASSIVE_VLAN_SECS=15           # passive 802.1Q listen window (needs tcpdump)
+PASSIVE_VLAN_SECS=15          # passive 802.1Q listen window (needs tcpdump)
 SCAN_TAGGED_VLANS=0           # 1 = bring up eth0.<vid>, DHCP, discover+scan each
                               #     tagged VLAN. ACTIVE VLAN-hopping; authorized
                               #     engagements only. No-op on a plain access port.

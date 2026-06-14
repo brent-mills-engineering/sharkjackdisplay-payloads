@@ -27,16 +27,16 @@
 
 # ------------------------------- CONFIG -------------------------------------
 DHCP_WAIT_SECS=30
-EXT_IP="example.com"               # external probe target (stable, benign)
-EXT_HOST="example.com"         # external hostname for HTTP/TLS path tests
+EXT_IP="example.com"          # external probe target (stable, benign)
+EXT_HOST="example.com"        # external hostname for HTTP/TLS path tests
 EGRESS_PORTS="22,25,53,80,443,123,445,3389,1433,8080,8443"
-SEG_TARGETS=""                 # internal ranges/IPs to test reachability TO,
-                               # e.g. "10.10.10.0/24 10.20.0.1". Empty = gateway
-                               # mgmt surface only. Authorized scope ONLY.
+SEG_TARGETS=""                # internal ranges/IPs to test reachability TO,
+                              # e.g. "10.10.10.0/24 10.20.0.1". Empty = gateway
+                              # mgmt surface only. Authorized scope ONLY.
 SEG_PORTS="22,23,80,443,445,3389,8443"
 LOOT_BASE="/root/loot/segmentation"
 # VLAN-aware scanning: also tag onto and scan tagged VLANs seen on a trunk.
-SCAN_TAGGED_VLANS=0            # 1 = discover+scan tagged VLANs too. ACTIVE VLAN-
+SCAN_TAGGED_VLANS=0           # 1 = discover+scan tagged VLANs too. ACTIVE VLAN-
                               #     hopping; set 0 for client sites unless it is
                               #     authorized. No-op on a plain access port.
 VLAN_PROBE_IDS=""             # fallback VIDs if none are sniffed, e.g. "2 3 10"

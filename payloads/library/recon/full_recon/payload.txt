@@ -59,7 +59,7 @@ SCAN_TAGGED_VLANS=0             # 1 = also DISCOVER + SCAN hosts on tagged VLANs
                                 #     active VLAN-hopping: authorized engagements
                                 #     only. Off by default on purpose. (On a plain
                                 #     access port there are no tags, so it no-ops.)
-VLAN_PROBE_IDS=""              # fallback VIDs to try when NO tags are seen
+VLAN_PROBE_IDS=""               # fallback VIDs to try when NO tags are seen
                                 #     passively, e.g. "10 20 30". Empty = scan
                                 #     only the VLANs actually observed on the wire.
 

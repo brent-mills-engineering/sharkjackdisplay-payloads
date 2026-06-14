@@ -25,12 +25,12 @@
 
 # ------------------------------- CONFIG -------------------------------------
 DHCP_WAIT_SECS=30
-DOMAIN_OVERRIDE=""              # force the AD domain if DHCP doesn't advertise one
-TRY_ZONE_TRANSFER=1            # 1 = attempt AXFR against the internal DNS server
-PTR_SWEEP=1                    # 1 = reverse-resolve the local /24 for naming
+DOMAIN_OVERRIDE=""            # force the AD domain if DHCP doesn't advertise one
+TRY_ZONE_TRANSFER=1           # 1 = attempt AXFR against the internal DNS server
+PTR_SWEEP=1                   # 1 = reverse-resolve the local /24 for naming
 LOOT_BASE="/root/loot/dhcp_dns_ad"
 # VLAN-aware scanning: also tag onto and scan tagged VLANs seen on a trunk.
-SCAN_TAGGED_VLANS=0            # 1 = discover+scan tagged VLANs too. ACTIVE VLAN-
+SCAN_TAGGED_VLANS=0           # 1 = discover+scan tagged VLANs too. ACTIVE VLAN-
                               #     hopping; set 0 for client sites unless it is
                               #     authorized. No-op on a plain access port.
 VLAN_PROBE_IDS=""             # fallback VIDs if none are sniffed, e.g. "2 3 10"

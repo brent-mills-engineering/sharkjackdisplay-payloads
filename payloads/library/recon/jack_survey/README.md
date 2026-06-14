@@ -21,8 +21,7 @@ of drops fast.
 > assess, within the agreed scope and time window. The payload is mostly
 > passive: it listens, requests one DHCP lease, and sends a few small outbound
 > reachability probes to `INTERNET_TEST_HOST`. Nothing is exfiltrated: all output
-> stays on-device under `/root/loot/jack_survey/` until you retrieve it. See the
-> Legal and Disclaimer sections of the repository README.
+> stays on-device under `/root/loot/jack_survey/` until you retrieve it.
 
 ## How it works
 

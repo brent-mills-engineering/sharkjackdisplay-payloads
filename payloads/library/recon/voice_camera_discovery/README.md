@@ -12,8 +12,7 @@ this network, and where?" is the whole question.
 > networks you own or are contracted to assess, within the agreed scope and time
 > window, and do not retain third-party capture data beyond the engagement.
 > Nothing is exfiltrated: all output stays on-device under
-> `/root/loot/voice_camera/` until you retrieve it. See the Legal and Disclaimer
-> sections of the repository README.
+> `/root/loot/voice_camera/` until you retrieve it.
 
 ## How it identifies things
 

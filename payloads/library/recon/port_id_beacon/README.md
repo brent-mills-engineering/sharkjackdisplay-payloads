@@ -15,8 +15,7 @@ without dragging a toner-and-probe kit or a second laptop to the closet.
 
 > **Authorized use only.** Passive: no probes, no scans, no DHCP. Run only on
 > networks you own or are contracted to assess. Minimal output stays on-device
-> under `/root/loot/port_id/`. See the Legal and Disclaimer sections of the
-> repository README.
+> under `/root/loot/port_id/`.
 
 ## How it works
 
