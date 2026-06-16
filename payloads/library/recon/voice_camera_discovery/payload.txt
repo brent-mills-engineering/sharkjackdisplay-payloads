@@ -41,7 +41,6 @@ LOOT_BASE="/root/loot/voice_camera"
 
 # ============================ helpers =======================================
 say()  { SCREEN_WRITE "$*" 2>/dev/null; }
-spin_down() { STOP_SPINNER 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 # Lift an LLDP TLV value out of tcpdump -v output (value inline or next line).
@@ -132,7 +131,7 @@ tcpdump -nn -v -r "$PCAP" 'ether host 01:00:0c:cc:cc:cc' 2>/dev/null > "$RUN/cdp
 L_NAME=$(lldp_field "$RUN/lldp.txt" 'System Name TLV')
 L_PORT=$(lldp_field "$RUN/lldp.txt" 'Port ID TLV')
 C_DEV=$(grep -i 'Device-ID' "$RUN/cdp.txt" 2>/dev/null | head -1 | sed "s/.*: '//; s/'.*//")
-spin_down
+STOP_SPINNER
 
 # --- Voice VLAN: LLDP-MED Network Policy (Voice) and/or CDP, then 802.1Q tags ---
 # tcpdump's exact wording varies by version, so match "voice" lines and pull the
@@ -161,7 +160,7 @@ grep -oE '[A-Za-z0-9._-]+\.local' "$RUN/mdns.txt" 2>/dev/null | sort -u > "$RUN/
 
 # --- SSDP / UPnP (UDP 1900): supplementary device hints ---
 tcpdump -nn -A -r "$PCAP" 'udp port 1900' 2>/dev/null | grep -iE '^(SERVER|LOCATION|ST|USN):' | sort -u > "$RUN/ssdp.txt"
-spin_down
+STOP_SPINNER
 
 # --- DHCP (67/68): vendor class (option 60) + hostnames as name enrichment ---
 CREATE_SPINNER "Passive ARP / DHCP"
@@ -181,7 +180,7 @@ tcpdump -nn -e -r "$PCAP" arp 2>/dev/null | awk '
       if ($i=="is-at") { ip=$(i-1); gsub(/[,:]$/,"",ip); m=$(i+1); gsub(/[,:]$/,"",m); if (ip ~ /^[0-9]+\./ && m ~ /:/) print ip"\t"m }
     }
   }' | sort -u > "$RUN/arp_hosts.tsv"
-spin_down
+STOP_SPINNER
 
 
 # --------------------------- PHASE: CLASSIFY --------------------------------

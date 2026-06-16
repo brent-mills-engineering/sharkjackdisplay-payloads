@@ -81,7 +81,6 @@ have() { command -v "$1" >/dev/null 2>&1; }
 
 # Quiet wrappers so a missing display binary never aborts the scan.
 say()  { SCREEN_WRITE "$*" 2>/dev/null; }      # one line to the screen
-spin_down() { STOP_SPINNER 2>/dev/null; }
 
 # Randomize eth0's MAC in raw shell (no DuckyScript command exists for this).
 # Prefer macchanger; otherwise build a random locally-administered unicast MAC.
@@ -244,7 +243,7 @@ if [ -n "$GATEWAY" ]; then
   else
     nmap -sV $NMAP_TIMING --host-timeout "$HOST_TIMEOUT" -oA "$RUN/router" "$GATEWAY" >/dev/null 2>&1
   fi
-  spin_down
+  STOP_SPINNER
   # Pull a single best OS string out of the router scan.
   ROUTER_OS=$(grep -m1 -E '^OS details:'            "$RUN/router.nmap" 2>/dev/null | sed 's/^OS details: //')
   [ -z "$ROUTER_OS" ] && ROUTER_OS=$(grep -m1 -E '^Running:'           "$RUN/router.nmap" 2>/dev/null | sed 's/^Running: //')
@@ -260,7 +259,7 @@ CREATE_SPINNER "ARP/ping sweep $ACCESS_CIDR"
 # On a local segment, nmap uses ARP for discovery: reliable even when ICMP is
 # filtered. We scan the whole access subnet derived from our own lease.
 nmap -sn $NMAP_TIMING -oA "$RUN/discovery" "$IP/$PREFIX" >/dev/null 2>&1
-spin_down
+STOP_SPINNER
 awk '/Status: Up/{print $2}' "$RUN/discovery.gnmap" 2>/dev/null | sort -u > "$RUN/up_hosts.txt"
 UPCOUNT=$(wc -l < "$RUN/up_hosts.txt" 2>/dev/null | tr -d ' ')
 [ -z "$UPCOUNT" ] && UPCOUNT=0
@@ -273,7 +272,7 @@ if [ "$UPCOUNT" -gt 0 ]; then
   CREATE_SPINNER "Port/service scan x$UPCOUNT"
   nmap -sV $NMAP_TIMING --top-ports "$TOP_PORTS" --host-timeout "$HOST_TIMEOUT" \
        $EXTRA_NMAP -iL "$RUN/up_hosts.txt" -oA "$RUN/services" >/dev/null 2>&1
-  spin_down
+  STOP_SPINNER
 else
   : > "$RUN/services.nmap"
 fi
@@ -296,7 +295,7 @@ if have tcpdump; then
   CREATE_SPINNER "Listening ${PASSIVE_VLAN_SECS}s for 802.1Q"
   timeout "${PASSIVE_VLAN_SECS}s" tcpdump -e -nn -i eth0 -c 300 vlan 2>/dev/null \
     | grep -oE 'vlan [0-9]+' | awk '{print $2}' | sort -un > "$RUN/_tags.txt"
-  spin_down
+  STOP_SPINNER
   PASSIVE_TAGS=$(tr '\n' ' ' < "$RUN/_tags.txt" 2>/dev/null)
   if [ -n "$PASSIVE_TAGS" ]; then
     echo "Tagged VLAN IDs seen passively (trunk port): $PASSIVE_TAGS" >> "$VLANF"
@@ -345,7 +344,7 @@ if [ "$SCAN_TAGGED_VLANS" = "1" ]; then
         ip link set "eth0.$vid" down 2>/dev/null
         ip link del "eth0.$vid" 2>/dev/null
       fi
-      spin_down
+      STOP_SPINNER
     done
   else
     echo "Tagged-VLAN scan requested but 'ip'/'udhcpc' unavailable - skipped." >> "$VLANF"

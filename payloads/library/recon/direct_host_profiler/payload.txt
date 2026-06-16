@@ -42,7 +42,6 @@ LOOT_BASE="/root/loot/direct_host"
 
 say()  { SCREEN_WRITE "$*" 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
-spin_down() { STOP_SPINNER 2>/dev/null; }
 
 get_link_state() {
   cat /sys/class/net/eth0/carrier 2>/dev/null | grep -q 1 && echo "UP" || echo "DOWN"
@@ -262,7 +261,7 @@ nmap -Pn -sU -p137 --script nbstat --host-timeout "$HOST_TIMEOUT" "$CLIENT_IP" \
 NETBIOS_NAME=$(grep -i 'NetBIOS name:' "$RUN/nbstat.nmap" 2>/dev/null | head -1 | sed 's/.*NetBIOS name: *//; s/,.*$//')
 [ "$NETBIOS_NAME" = "<unknown>" ] && NETBIOS_NAME=""
 
-spin_down
+STOP_SPINNER
 
 OPEN_PORTS=$(awk '/^[0-9]+\/tcp[ \t]+open/{split($1,a,"/"); printf "%s/%s ",a[1],$3}' "$RUN/services.nmap" 2>/dev/null)
 OPEN_PORT_NUMS=$(awk '/^[0-9]+\/tcp[ \t]+open/{split($1,a,"/"); printf "%s,",a[1]}' "$RUN/services.nmap" 2>/dev/null | sed 's/,$//')

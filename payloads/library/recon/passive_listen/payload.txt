@@ -39,7 +39,6 @@ LOOT_BASE="/root/loot/passive"
 
 # ============================ helpers =======================================
 say()  { SCREEN_WRITE "$*" 2>/dev/null; }
-spin_down() { STOP_SPINNER 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 # Lift an LLDP TLV value out of tcpdump -v output, tolerant of both formats:
@@ -101,7 +100,7 @@ say "Decoding capture"
 CREATE_SPINNER "Switch neighbors (LLDP/CDP)"
 tcpdump -nn -v -r "$PCAP" 'ether proto 0x88cc' 2>/dev/null > "$RUN/lldp.txt"
 tcpdump -nn -v -r "$PCAP" 'ether host 01:00:0c:cc:cc:cc' 2>/dev/null > "$RUN/cdp.txt"
-spin_down
+STOP_SPINNER
 
 # LLDP fields (best-effort; full decode kept in lldp.txt).
 L_NAME=$(lldp_field "$RUN/lldp.txt" 'System Name TLV')
@@ -130,7 +129,7 @@ tcpdump -nn -e -r "$PCAP" arp 2>/dev/null | awk '
     }
   }' | sort -u > "$RUN/arp_hosts.tsv"
 ARPN=$(wc -l < "$RUN/arp_hosts.tsv" 2>/dev/null | tr -d ' '); [ -z "$ARPN" ] && ARPN=0
-spin_down
+STOP_SPINNER
 
 # --- mDNS / SSDP / NetBIOS / DHCP responders ---
 CREATE_SPINNER "mDNS / SSDP / NetBIOS"
@@ -139,7 +138,7 @@ tcpdump -nn -A -r "$PCAP" 'udp port 1900' 2>/dev/null | grep -iE '^(SERVER|LOCAT
 tcpdump -nn -r "$PCAP" 'udp port 137'  2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort -u > "$RUN/netbios_ips.txt"
 DHCP_SRV=$(tcpdump -nn -r "$PCAP" '(udp port 67 or udp port 68)' 2>/dev/null | grep -oiE 'Server-ID Option[^,]*[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort -u | tr '\n' ' ')
 STP_SEEN=$(tcpdump -nn -r "$PCAP" 'stp' 2>/dev/null | head -1)
-spin_down
+STOP_SPINNER
 
 
 # --------------------------- PHASE: WRITE LOOT ------------------------------

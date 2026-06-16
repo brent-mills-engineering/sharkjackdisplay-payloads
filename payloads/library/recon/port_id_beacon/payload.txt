@@ -34,7 +34,6 @@ LOOT_BASE="/root/loot/port_id"
 
 # ============================ helpers =======================================
 say()  { SCREEN_WRITE "$*" 2>/dev/null; }
-spin_down() { STOP_SPINNER 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 lldp_field() {
@@ -106,7 +105,7 @@ done
 
 kill "$TPID" 2>/dev/null; wait "$TPID" 2>/dev/null
 [ -s "$PCAP" ] && decode      # final decode in case a frame landed on the last tick
-spin_down
+STOP_SPINNER
 
 
 # --------------------------- PHASE: RESULT ----------------------------------

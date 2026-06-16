@@ -41,7 +41,6 @@ LOOT_BASE="/root/loot/poe_survey"
 
 # ============================ helpers =======================================
 say()  { SCREEN_WRITE "$*" 2>/dev/null; }
-spin_down() { STOP_SPINNER 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 lldp_field() {
@@ -175,7 +174,7 @@ fi
 # --------------------------- PHASE: WRITE LOOT ------------------------------
 LED CLEANUP
 say "Writing loot"
-spin_down
+STOP_SPINNER
 {
   echo "=========================================================="
   echo " SHARK JACK DISPLAY - PoE SURVEY"

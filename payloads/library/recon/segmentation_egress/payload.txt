@@ -46,7 +46,6 @@ PASSIVE_VLAN_SECS=12          # passive 802.1Q listen window (needs tcpdump)
 
 # ============================ helpers =======================================
 say()  { SCREEN_WRITE "$*" 2>/dev/null; }
-spin_down() { STOP_SPINNER 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 # ============================================================================
 
@@ -137,7 +136,7 @@ say "Testing egress"
 CREATE_SPINNER "Outbound TCP -> $EXT_IP"
 nmap -Pn --reason -T4 -p "$EGRESS_PORTS" "$EXT_IP" -oN "$RUN/egress_tcp.txt" >/dev/null 2>&1
 nmap -Pn -sU -p53 "$EXT_IP" -oN "$RUN/egress_udp53.txt" >/dev/null 2>&1
-spin_down
+STOP_SPINNER
 # open|closed => our SYN reached the internet (egress allowed); filtered => blocked.
 EG=$(awk '/^[0-9]+\/tcp/{ split($1,a,"/"); p=a[1]; if($2=="open"||$2=="closed") al=al" "p; else bl=bl" "p }
          END{ printf "ALLOWED:%s\nBLOCKED:%s\n", al, bl }' "$RUN/egress_tcp.txt" 2>/dev/null)
@@ -164,7 +163,7 @@ if have openssl; then
            | openssl x509 -noout -issuer 2>/dev/null | sed 's/^issuer= *//')
   [ -z "$ISSUER" ] && ISSUER="(no TLS handshake - egress blocked or proxied)"
 fi
-spin_down
+STOP_SPINNER
 
 
 # ------------------------- PHASE: GW MGMT + SEGMENTATION --------------------
@@ -172,7 +171,7 @@ LED STAGE3
 say "Gateway mgmt"
 CREATE_SPINNER "Gateway admin ports"
 nmap -Pn -T4 -p22,23,80,443,8443 "$GATEWAY" -oN "$RUN/gateway_mgmt.txt" >/dev/null 2>&1
-spin_down
+STOP_SPINNER
 GW_OPEN=$(awk '/^[0-9]+\/tcp[ \t]+open/{split($1,a,"/"); printf "%s/%s ", a[1], $3}' "$RUN/gateway_mgmt.txt" 2>/dev/null)
 
 SEG_RESULT="not tested (SEG_TARGETS empty)"
@@ -182,7 +181,7 @@ if [ -n "$SEG_TARGETS" ]; then
   CREATE_SPINNER "Reaching SEG_TARGETS"
   # shellcheck disable=SC2086
   nmap -Pn -T4 -p "$SEG_PORTS" $SEG_TARGETS -oG "$RUN/segmentation.gnmap" -oN "$RUN/segmentation.txt" >/dev/null 2>&1
-  spin_down
+  STOP_SPINNER
   SEG_HOSTS=$(awk -F'\t' '/Ports:/ && /open/{print $0}' "$RUN/segmentation.gnmap" 2>/dev/null \
               | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort -u | tr '\n' ' ')
   if [ -n "$SEG_HOSTS" ]; then SEG_RESULT="REACHABLE (segmentation gap): $SEG_HOSTS"

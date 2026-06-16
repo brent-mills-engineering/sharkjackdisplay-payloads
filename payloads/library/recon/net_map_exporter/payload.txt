@@ -47,7 +47,6 @@ LOOT_BASE="/root/loot/network_map"
 
 say()  { SCREEN_WRITE "$*" 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
-spin_down() { STOP_SPINNER 2>/dev/null; }
 
 safe_id() {
   echo "$1" | sed 's/[^A-Za-z0-9_]/_/g'
@@ -170,7 +169,7 @@ if have tcpdump; then
         if ($i=="is-at") { ip=$(i-1); gsub(/[,:]$/,"",ip); m=$(i+1); gsub(/[,:]$/,"",m); if (ip ~ /^[0-9]+\./ && m ~ /:/) print ip"\t"m }
       }
     }' | sort -u > "$RUN/passive_arp.tsv"
-  spin_down
+  STOP_SPINNER
 else
   : > "$RUN/lldp.txt"
   : > "$RUN/cdp.txt"
@@ -248,7 +247,7 @@ NATIVE_N=0
 if [ -n "$IP" ]; then
   CREATE_SPINNER "Discover $CIDR"
   NATIVE_N=$(scan_segment eth0 "$IP/$PREFIX" "$RUN/native" "$CIDR")
-  spin_down
+  STOP_SPINNER
 fi
 
 # Add passive ARP-only hosts (access segment) not already discovered actively.
@@ -269,7 +268,7 @@ if have tcpdump; then
   CREATE_SPINNER "802.1Q listen ${PASSIVE_VLAN_SECS}s"
   timeout "${PASSIVE_VLAN_SECS}s" tcpdump -e -nn -i eth0 -c 300 vlan 2>/dev/null \
     | grep -oE 'vlan [0-9]+' | awk '{print $2}' | sort -un > "$RUN/_tags.txt"
-  spin_down
+  STOP_SPINNER
   PASSIVE_TAGS=$(tr '\n' ' ' < "$RUN/_tags.txt" 2>/dev/null)
 fi
 TAGS_SEEN="$PASSIVE_TAGS"; [ -z "$TAGS_SEEN" ] && TAGS_SEEN="none (looks like an access port)"
@@ -300,7 +299,7 @@ if [ "$SCAN_TAGGED_VLANS" = "1" ] && [ -n "$IP" ]; then
         ip link set "eth0.$vid" down 2>/dev/null
         ip link del "eth0.$vid" 2>/dev/null
       fi
-      spin_down
+      STOP_SPINNER
     done
   fi
 fi

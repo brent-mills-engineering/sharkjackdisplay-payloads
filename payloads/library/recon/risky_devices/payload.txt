@@ -51,7 +51,6 @@ PASSIVE_VLAN_SECS=12          # passive 802.1Q listen window (needs tcpdump)
 
 # ============================ helpers =======================================
 say()  { SCREEN_WRITE "$*" 2>/dev/null; }
-spin_down() { STOP_SPINNER 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 # Built-in OUI table for the high-signal DIY devices nmap's DB often misses.
@@ -222,7 +221,7 @@ say "Discovering + scanning"
 CREATE_SPINNER "Scan (native + tagged VLANs)"
 NATIVE_CIDR=$(network_cidr "$IP" "$PREFIX")
 run_over_vlans scan_one "$NATIVE_CIDR"
-spin_down
+STOP_SPINNER
 
 # Merge per-VLAN raw output into the combined files the classifier expects.
 cat "$RUN"/services_*.txt > "$RUN/services.txt" 2>/dev/null
