@@ -45,11 +45,7 @@ VLAN_PROBE_IDS=""             # fallback VIDs if none are sniffed, e.g. "10 20 3
 LOOT_BASE="/root/loot/network_map"
 # ----------------------------------------------------------------------------
 
-say()  { SCREEN_WRITE "$*" 2>/dev/null; }
-glow() { LED "$@" 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
-spin_up()   { CREATE_SPINNER "$*" 2>/dev/null; }
-spin_down() { STOP_SPINNER 2>/dev/null; }
 
 safe_id() {
   echo "$1" | sed 's/[^A-Za-z0-9_]/_/g'
@@ -132,9 +128,9 @@ scan_segment() {                                 # scan_segment <iface> <target>
 }
 
 # ------------------------------ SETUP ---------------------------------------
-glow SETUP
+LED SETUP
 CLEAR_SCREEN 2>/dev/null
-say "Network Map Exporter"
+SCREEN_WRITE "Network Map Exporter"
 
 RUN="$LOOT_BASE/$(date -u +%Y%m%dT%H%M%SZ 2>/dev/null || echo run)_$$"
 mkdir -p "$RUN"
@@ -144,22 +140,22 @@ MMD="$RUN/topology.mmd"
 DOT="$RUN/topology.dot"
 
 if ! have nmap; then
-  glow FAIL
-  say "nmap missing"
+  LED FAIL
+  SCREEN_WRITE "nmap missing"
   echo "FAILED: nmap missing" > "$REPORT"
   ALERT "nmap missing" 8 2>/dev/null
   exit 1
 fi
 
 # --------------------------- PASSIVE LISTEN ---------------------------------
-glow SPECIAL
-say "Passive listen"
+LED SPECIAL
+SCREEN_WRITE "Passive listen"
 ip link set eth0 up 2>/dev/null
 WAIT_FOR_LINK 2>/dev/null
 
 PCAP="$RUN/passive.pcap"
 if have tcpdump; then
-  spin_up "LLDP/CDP/ARP"
+  CREATE_SPINNER "LLDP/CDP/ARP"
   timeout "${PASSIVE_LISTEN_SECS}s" tcpdump -i eth0 -s 0 -w "$PCAP" 2>/dev/null
   tcpdump -nn -v -r "$PCAP" 'ether proto 0x88cc' 2>/dev/null > "$RUN/lldp.txt"
   tcpdump -nn -v -r "$PCAP" 'ether host 01:00:0c:cc:cc:cc' 2>/dev/null > "$RUN/cdp.txt"
@@ -172,7 +168,7 @@ if have tcpdump; then
         if ($i=="is-at") { ip=$(i-1); gsub(/[,:]$/,"",ip); m=$(i+1); gsub(/[,:]$/,"",m); if (ip ~ /^[0-9]+\./ && m ~ /:/) print ip"\t"m }
       }
     }' | sort -u > "$RUN/passive_arp.tsv"
-  spin_down
+  STOP_SPINNER
 else
   : > "$RUN/lldp.txt"
   : > "$RUN/cdp.txt"
@@ -203,8 +199,8 @@ SW_DESC="${L_DESC:-$C_PLAT}"
 [ -z "$VLAN" ] && VLAN="unknown"
 
 # ------------------------------ DHCP ----------------------------------------
-glow STAGE1
-say "DHCP lease"
+LED STAGE1
+SCREEN_WRITE "DHCP lease"
 NETMODE DHCP_CLIENT 2>/dev/null
 WAIT_FOR_LINK 2>/dev/null
 
@@ -224,7 +220,7 @@ done
 DHCP_OK=1
 if [ -z "$IP" ]; then
   DHCP_OK=0
-  say "No DHCP (passive only)"
+  SCREEN_WRITE "No DHCP (passive only)"
 fi
 
 GATEWAY=$(ip route 2>/dev/null | awk '/default/{print $3; exit}')
@@ -244,13 +240,13 @@ DOMAIN=$(grep -hE '^(search|domain)' /tmp/resolv.conf.auto /etc/resolv.conf 2>/d
 # Always record the access/native segment so passive-only hosts have a home.
 printf '%s\t%s\t%s\t%s\n' "$VLAN" "$CIDR" "1" "$GATEWAY" >> "$RUN/segments.tsv"
 
-glow STAGE2
-say "Host discovery"
+LED STAGE2
+SCREEN_WRITE "Host discovery"
 NATIVE_N=0
 if [ -n "$IP" ]; then
-  spin_up "Discover $CIDR"
+  CREATE_SPINNER "Discover $CIDR"
   NATIVE_N=$(scan_segment eth0 "$IP/$PREFIX" "$RUN/native" "$CIDR")
-  spin_down
+  STOP_SPINNER
 fi
 
 # Add passive ARP-only hosts (access segment) not already discovered actively.
@@ -264,14 +260,14 @@ done < "$RUN/passive_arp.tsv"
 # ----------------------------- VLAN TRAVERSAL -------------------------------
 # Passively sniff 802.1Q tags (a trunk leaks them; an access port shows none),
 # then optionally scan each tagged VLAN and fold its hosts into the map.
-glow STAGE4
-say "Mapping VLANs"
+LED STAGE4
+SCREEN_WRITE "Mapping VLANs"
 PASSIVE_TAGS=""
 if have tcpdump; then
-  spin_up "802.1Q listen ${PASSIVE_VLAN_SECS}s"
+  CREATE_SPINNER "802.1Q listen ${PASSIVE_VLAN_SECS}s"
   timeout "${PASSIVE_VLAN_SECS}s" tcpdump -e -nn -i eth0 -c 300 vlan 2>/dev/null \
     | grep -oE 'vlan [0-9]+' | awk '{print $2}' | sort -un > "$RUN/_tags.txt"
-  spin_down
+  STOP_SPINNER
   PASSIVE_TAGS=$(tr '\n' ' ' < "$RUN/_tags.txt" 2>/dev/null)
 fi
 TAGS_SEEN="$PASSIVE_TAGS"; [ -z "$TAGS_SEEN" ] && TAGS_SEEN="none (looks like an access port)"
@@ -282,9 +278,9 @@ if [ "$SCAN_TAGGED_VLANS" = "1" ] && [ -n "$IP" ]; then
   if [ -n "$CANDIDATES" ] && have ip && have udhcpc; then
     lsmod 2>/dev/null | grep -q 8021q || modprobe 8021q 2>/dev/null
     for vid in $CANDIDATES; do
-      glow STAGE5
-      say "VLAN $vid"
-      spin_up "VLAN $vid: lease + scan"
+      LED STAGE5
+      SCREEN_WRITE "VLAN $vid"
+      CREATE_SPINNER "VLAN $vid: lease + scan"
       ip link add link eth0 name "eth0.$vid" type vlan id "$vid" 2>/dev/null
       if ip link show "eth0.$vid" >/dev/null 2>&1; then
         ip link set "eth0.$vid" up 2>/dev/null
@@ -302,7 +298,7 @@ if [ "$SCAN_TAGGED_VLANS" = "1" ] && [ -n "$IP" ]; then
         ip link set "eth0.$vid" down 2>/dev/null
         ip link del "eth0.$vid" 2>/dev/null
       fi
-      spin_down
+      STOP_SPINNER
     done
   fi
 fi
@@ -313,8 +309,8 @@ SEG_COUNT=$(wc -l < "$RUN/segments.tsv" 2>/dev/null | tr -d ' ')
 [ -z "$SEG_COUNT" ] && SEG_COUNT=0
 
 # ----------------------------- EMIT MERMAID ---------------------------------
-glow CLEANUP
-say "Writing map"
+LED CLEANUP
+SCREEN_WRITE "Writing map"
 
 DROP_ID="drop"
 SWITCH_ID="switch_$(safe_id "$SWITCH")"
@@ -520,12 +516,12 @@ D_SWITCH=$(dot_txt "$SWITCH"); D_DESC=$(dot_txt "$SW_DESC"); D_PORT=$(dot_txt "$
   echo "=========================================================="
 } > "$REPORT"
 
-[ "$DHCP_OK" -eq 1 ] && glow FINISH || glow SPECIAL
+[ "$DHCP_OK" -eq 1 ] && LED FINISH || LED SPECIAL
 CLEAR_SCREEN 2>/dev/null
-say "Map export done"
-[ "$DHCP_OK" -eq 0 ] && say "Passive only (no DHCP)"
-say "Switch: $SWITCH"
-say "Hosts: $TOTAL_HOSTS"
-say "Segments: $SEG_COUNT"
+SCREEN_WRITE "Map export done"
+[ "$DHCP_OK" -eq 0 ] && SCREEN_WRITE "Passive only (no DHCP)"
+SCREEN_WRITE "Switch: $SWITCH"
+SCREEN_WRITE "Hosts: $TOTAL_HOSTS"
+SCREEN_WRITE "Segments: $SEG_COUNT"
 ALERT "Network map: $TOTAL_HOSTS hosts across $SEG_COUNT segment(s)$([ "$DHCP_OK" -eq 0 ] && echo ' (passive only)')" 12 2>/dev/null
 exit 0

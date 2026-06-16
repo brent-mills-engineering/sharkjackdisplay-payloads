@@ -40,11 +40,7 @@ HOST_TIMEOUT="60s"
 LOOT_BASE="/root/loot/direct_host"
 # ----------------------------------------------------------------------------
 
-say()  { SCREEN_WRITE "$*" 2>/dev/null; }
-glow() { LED "$@" 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
-spin_up()   { CREATE_SPINNER "$*" 2>/dev/null; }
-spin_down() { STOP_SPINNER 2>/dev/null; }
 
 get_link_state() {
   cat /sys/class/net/eth0/carrier 2>/dev/null | grep -q 1 && echo "UP" || echo "DOWN"
@@ -81,25 +77,25 @@ guess_type() {
 }
 
 # ------------------------------ SETUP ---------------------------------------
-glow SETUP
+LED SETUP
 CLEAR_SCREEN 2>/dev/null
-say "Direct Host Profiler"
-say "Connect target device"
+SCREEN_WRITE "Direct Host Profiler"
+SCREEN_WRITE "Connect target device"
 
 RUN="$LOOT_BASE/$(date -u +%Y%m%dT%H%M%SZ 2>/dev/null || echo run)_$$"
 mkdir -p "$RUN"
 REPORT="$RUN/summary.txt"
 
 if ! have nmap; then
-  glow FAIL
-  say "nmap missing"
+  LED FAIL
+  SCREEN_WRITE "nmap missing"
   echo "FAILED: nmap missing" > "$REPORT"
   ALERT "nmap missing" 8 2>/dev/null
   exit 1
 fi
 
 # ------------------------------ LINK ----------------------------------------
-glow SPECIAL
+LED SPECIAL
 ip link set eth0 up 2>/dev/null
 
 LINK="DOWN"
@@ -113,8 +109,8 @@ SPEED=$(get_speed)
 DUPLEX=$(get_duplex)
 
 if [ "$LINK" != "UP" ]; then
-  glow FAIL
-  say "Link: DOWN"
+  LED FAIL
+  SCREEN_WRITE "Link: DOWN"
   {
     echo "=========================================================="
     echo " SHARK JACK DISPLAY - DIRECT HOST PROFILER"
@@ -127,11 +123,11 @@ if [ "$LINK" != "UP" ]; then
   exit 0
 fi
 
-say "Link: ${SPEED:-?} ${DUPLEX:-?}"
+SCREEN_WRITE "Link: ${SPEED:-?} ${DUPLEX:-?}"
 
 # --------------------------- DHCP SERVER ------------------------------------
-glow STAGE1
-say "Starting DHCP server"
+LED STAGE1
+SCREEN_WRITE "Starting DHCP server"
 
 # Start the passive capture FIRST so the DHCP handshake (hostname, vendor class,
 # assigned IP) and any mDNS/NetBIOS/LLMNR land in the pcap.
@@ -159,8 +155,8 @@ done
 [ -z "$SJ_IP" ] && SJ_IP="-"
 
 # --------------------------- WAIT FOR CLIENT --------------------------------
-glow STAGE2
-say "Waiting for client"
+LED STAGE2
+SCREEN_WRITE "Waiting for client"
 
 CLIENT_IP=""
 CLIENT_MAC=""
@@ -194,8 +190,8 @@ if [ -z "$CLIENT_IP" ] && [ -s "$PCAP" ]; then
 fi
 
 if [ -z "$CLIENT_IP" ]; then
-  glow FAIL
-  say "No DHCP client"
+  LED FAIL
+  SCREEN_WRITE "No DHCP client"
   {
     echo "=========================================================="
     echo " SHARK JACK DISPLAY - DIRECT HOST PROFILER"
@@ -211,7 +207,7 @@ if [ -z "$CLIENT_IP" ]; then
   exit 0
 fi
 
-say "Client: $CLIENT_IP"
+SCREEN_WRITE "Client: $CLIENT_IP"
 
 # --------------------------- DECODE PASSIVE ---------------------------------
 DHCP_VENDOR=""
@@ -247,9 +243,9 @@ MDNS_NAMES=$(tr '\n' ' ' < "$RUN/mdns_names.txt" 2>/dev/null)
 [ -z "$CLIENT_MAC" ] && CLIENT_MAC="$DHCP_MAC"
 
 # ------------------------------- SCAN HOST ----------------------------------
-glow STAGE3
-say "Profiling host"
-spin_up "Scanning $CLIENT_IP"
+LED STAGE3
+SCREEN_WRITE "Profiling host"
+CREATE_SPINNER "Scanning $CLIENT_IP"
 
 nmap -Pn $NMAP_TIMING --host-timeout "$HOST_TIMEOUT" -sV -O --osscan-guess \
   --script http-title -p "$PORTSET" "$CLIENT_IP" \
@@ -264,7 +260,7 @@ nmap -Pn -sU -p137 --script nbstat --host-timeout "$HOST_TIMEOUT" "$CLIENT_IP" \
 NETBIOS_NAME=$(grep -i 'NetBIOS name:' "$RUN/nbstat.nmap" 2>/dev/null | head -1 | sed 's/.*NetBIOS name: *//; s/,.*$//')
 [ "$NETBIOS_NAME" = "<unknown>" ] && NETBIOS_NAME=""
 
-spin_down
+STOP_SPINNER
 
 OPEN_PORTS=$(awk '/^[0-9]+\/tcp[ \t]+open/{split($1,a,"/"); printf "%s/%s ",a[1],$3}' "$RUN/services.nmap" 2>/dev/null)
 OPEN_PORT_NUMS=$(awk '/^[0-9]+\/tcp[ \t]+open/{split($1,a,"/"); printf "%s,",a[1]}' "$RUN/services.nmap" 2>/dev/null | sed 's/,$//')
@@ -291,8 +287,8 @@ DEVICE_NAME="$DHCP_HOSTNAME"
 DEVICE_TYPE=$(guess_type "$VENDOR $DHCP_VENDOR" "$OS_GUESS" "$DEVICE_NAME $NETBIOS_NAME" "$MDNS_NAMES" "$OPEN_PORT_NUMS")
 
 # ------------------------------- REPORT -------------------------------------
-glow CLEANUP
-say "Writing report"
+LED CLEANUP
+SCREEN_WRITE "Writing report"
 
 {
   echo "=========================================================="
@@ -347,14 +343,14 @@ say "Writing report"
 } > "$REPORT"
 
 # ------------------------------- DISPLAY ------------------------------------
-glow FINISH
+LED FINISH
 CLEAR_SCREEN 2>/dev/null
-say "Direct Host: DONE"
-say "IP: ${CLIENT_IP:--}"
-say "MAC: ${CLIENT_MAC:--}"
-say "Name: ${DEVICE_NAME:--}"
-say "Type: ${DEVICE_TYPE:--}"
-say "Ports: ${OPEN_PORTS:-none}"
+SCREEN_WRITE "Direct Host: DONE"
+SCREEN_WRITE "IP: ${CLIENT_IP:--}"
+SCREEN_WRITE "MAC: ${CLIENT_MAC:--}"
+SCREEN_WRITE "Name: ${DEVICE_NAME:--}"
+SCREEN_WRITE "Type: ${DEVICE_TYPE:--}"
+SCREEN_WRITE "Ports: ${OPEN_PORTS:-none}"
 
 ALERT "Direct Host done: ${DEVICE_NAME:-unknown} ${CLIENT_IP:-no IP}" 12 2>/dev/null
 exit 0

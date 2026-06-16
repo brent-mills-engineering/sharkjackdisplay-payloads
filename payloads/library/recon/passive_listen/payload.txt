@@ -38,10 +38,6 @@ LOOT_BASE="/root/loot/passive"
 # ----------------------------------------------------------------------------
 
 # ============================ helpers =======================================
-say()  { SCREEN_WRITE "$*" 2>/dev/null; }
-glow() { LED "$@" 2>/dev/null; }
-spin_up()   { CREATE_SPINNER "$*" 2>/dev/null; }
-spin_down() { STOP_SPINNER 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 # Lift an LLDP TLV value out of tcpdump -v output, tolerant of both formats:
@@ -59,13 +55,13 @@ lldp_field() {
 
 
 # ------------------------------ PHASE: SETUP --------------------------------
-glow SETUP
+LED SETUP
 CLEAR_SCREEN 2>/dev/null
-say "Passive listen starting"
+SCREEN_WRITE "Passive listen starting"
 
 if ! have tcpdump; then
-  glow FAIL
-  say "tcpdump missing"
+  LED FAIL
+  SCREEN_WRITE "tcpdump missing"
   ALERT "Install tcpdump: opkg install tcpdump" 8 2>/dev/null
   exit 1
 fi
@@ -81,8 +77,8 @@ WAIT_FOR_LINK 2>/dev/null            # don't start the capture before carrier is
 
 
 # ---------------------------- PHASE: LISTEN ---------------------------------
-glow SPECIAL
-say "Listening ${LISTEN_SECS}s"
+LED SPECIAL
+SCREEN_WRITE "Listening ${LISTEN_SECS}s"
 CREATE_PROGRESS_BAR "Capturing traffic" 2>/dev/null
 # -p would disable promisc; we WANT promisc so multicast control frames arrive.
 tcpdump -i eth0 -s 0 -w "$PCAP" 2>/dev/null &
@@ -96,14 +92,14 @@ SET_PROGRESS 100 2>/dev/null
 
 
 # --------------------------- PHASE: DECODE ----------------------------------
-glow STAGE1
-say "Decoding capture"
+LED STAGE1
+SCREEN_WRITE "Decoding capture"
 
 # --- LLDP (0x88cc) and CDP (Cisco multicast 01:00:0c:cc:cc:cc) ---
-spin_up "Switch neighbors (LLDP/CDP)"
+CREATE_SPINNER "Switch neighbors (LLDP/CDP)"
 tcpdump -nn -v -r "$PCAP" 'ether proto 0x88cc' 2>/dev/null > "$RUN/lldp.txt"
 tcpdump -nn -v -r "$PCAP" 'ether host 01:00:0c:cc:cc:cc' 2>/dev/null > "$RUN/cdp.txt"
-spin_down
+STOP_SPINNER
 
 # LLDP fields (best-effort; full decode kept in lldp.txt).
 L_NAME=$(lldp_field "$RUN/lldp.txt" 'System Name TLV')
@@ -121,7 +117,7 @@ C_ADDR=$(grep -iA2 'Address' "$RUN/cdp.txt" 2>/dev/null | grep -oE '[0-9]+\.[0-9
 
 # --- Passive ARP -> live host list (no probes sent by us) ---
 # Captures (ip, mac) from "who-has X tell <ip>" (sender) and "<ip> is-at <mac>".
-spin_up "Passive ARP hosts"
+CREATE_SPINNER "Passive ARP hosts"
 tcpdump -nn -e -r "$PCAP" arp 2>/dev/null | awk '
   {
     mac=""
@@ -132,21 +128,21 @@ tcpdump -nn -e -r "$PCAP" arp 2>/dev/null | awk '
     }
   }' | sort -u > "$RUN/arp_hosts.tsv"
 ARPN=$(wc -l < "$RUN/arp_hosts.tsv" 2>/dev/null | tr -d ' '); [ -z "$ARPN" ] && ARPN=0
-spin_down
+STOP_SPINNER
 
 # --- mDNS / SSDP / NetBIOS / DHCP responders ---
-spin_up "mDNS / SSDP / NetBIOS"
+CREATE_SPINNER "mDNS / SSDP / NetBIOS"
 tcpdump -nn -r "$PCAP" 'udp port 5353' 2>/dev/null | grep -oE '[A-Za-z0-9_-]+\.(local|_tcp|_udp)' | sort -u > "$RUN/mdns.txt"
 tcpdump -nn -A -r "$PCAP" 'udp port 1900' 2>/dev/null | grep -iE '^(SERVER|LOCATION|ST|USN):' | sort -u > "$RUN/ssdp.txt"
 tcpdump -nn -r "$PCAP" 'udp port 137'  2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort -u > "$RUN/netbios_ips.txt"
 DHCP_SRV=$(tcpdump -nn -r "$PCAP" '(udp port 67 or udp port 68)' 2>/dev/null | grep -oiE 'Server-ID Option[^,]*[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort -u | tr '\n' ' ')
 STP_SEEN=$(tcpdump -nn -r "$PCAP" 'stp' 2>/dev/null | head -1)
-spin_down
+STOP_SPINNER
 
 
 # --------------------------- PHASE: WRITE LOOT ------------------------------
-glow CLEANUP
-say "Writing loot"
+LED CLEANUP
+SCREEN_WRITE "Writing loot"
 MDNSN=$(wc -l < "$RUN/mdns.txt" 2>/dev/null | tr -d ' '); [ -z "$MDNSN" ] && MDNSN=0
 {
   echo "=========================================================="
@@ -196,11 +192,11 @@ MDNSN=$(wc -l < "$RUN/mdns.txt" 2>/dev/null | tr -d ' '); [ -z "$MDNSN" ] && MDN
 
 
 # ------------------------------ PHASE: DONE ---------------------------------
-glow FINISH
+LED FINISH
 NEIGH="${L_NAME:-$C_DEV}"
 CLEAR_SCREEN 2>/dev/null
-say "Passive listen done"
-say "Switch: ${NEIGH:-unknown}"
-say "Hosts(ARP): $ARPN"
+SCREEN_WRITE "Passive listen done"
+SCREEN_WRITE "Switch: ${NEIGH:-unknown}"
+SCREEN_WRITE "Hosts(ARP): $ARPN"
 ALERT "Passive done. Switch: ${NEIGH:-?}, $ARPN hosts seen." 12 2>/dev/null
 exit 0

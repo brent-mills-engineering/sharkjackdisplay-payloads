@@ -33,10 +33,6 @@ LOOT_BASE="/root/loot/port_id"
 # ----------------------------------------------------------------------------
 
 # ============================ helpers =======================================
-say()  { SCREEN_WRITE "$*" 2>/dev/null; }
-glow() { LED "$@" 2>/dev/null; }
-spin_up()   { CREATE_SPINNER "$*" 2>/dev/null; }
-spin_down() { STOP_SPINNER 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 lldp_field() {
@@ -67,13 +63,13 @@ decode() {  # decode the current pcap into SWITCH/PORT (+ loot fields); sets glo
 
 
 # ------------------------------ PHASE: SETUP --------------------------------
-glow SETUP
+LED SETUP
 CLEAR_SCREEN 2>/dev/null
-say "Port ID Beacon"
+SCREEN_WRITE "Port ID Beacon"
 
 if ! have tcpdump; then
-  glow FAIL
-  say "tcpdump missing"
+  LED FAIL
+  SCREEN_WRITE "tcpdump missing"
   ALERT "Install tcpdump: opkg install tcpdump" 8 2>/dev/null
   exit 1
 fi
@@ -89,9 +85,9 @@ WAIT_FOR_LINK 2>/dev/null
 
 
 # ---------------------------- PHASE: LISTEN ---------------------------------
-glow SPECIAL
-say "Listening for LLDP/CDP"
-spin_up "Waiting for a frame"
+LED SPECIAL
+SCREEN_WRITE "Listening for LLDP/CDP"
+CREATE_SPINNER "Waiting for a frame"
 
 # Capture only LLDP (0x88cc) and CDP (Cisco multicast); poll and stop on first hit.
 tcpdump -i eth0 -s 0 -w "$PCAP" 'ether proto 0x88cc or ether host 01:00:0c:cc:cc:cc' 2>/dev/null &
@@ -108,7 +104,7 @@ done
 
 kill "$TPID" 2>/dev/null; wait "$TPID" 2>/dev/null
 [ -s "$PCAP" ] && decode      # final decode in case a frame landed on the last tick
-spin_down
+STOP_SPINNER
 
 
 # --------------------------- PHASE: RESULT ----------------------------------
@@ -132,14 +128,14 @@ spin_down
 
 CLEAR_SCREEN 2>/dev/null
 if [ -n "$SWITCH" ] || [ -n "$PORT" ]; then
-  glow FINISH
-  say "Switch: ${SWITCH:-unknown}"
-  say "Port: ${PORT:-unknown}"
+  LED FINISH
+  SCREEN_WRITE "Switch: ${SWITCH:-unknown}"
+  SCREEN_WRITE "Port: ${PORT:-unknown}"
   ALERT "Port ID: ${SWITCH:-?} ${PORT:-?}" 15 2>/dev/null
 else
-  glow FAIL
-  say "No LLDP/CDP heard"
-  say "in ${WAIT_SECS}s"
+  LED FAIL
+  SCREEN_WRITE "No LLDP/CDP heard"
+  SCREEN_WRITE "in ${WAIT_SECS}s"
   ALERT "No LLDP/CDP: unmanaged switch, or LLDP/CDP disabled" 12 2>/dev/null
 fi
 exit 0

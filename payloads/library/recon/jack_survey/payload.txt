@@ -55,11 +55,7 @@ VLAN_PROBE_IDS=""              # extra VIDs to test even if not seen, e.g. "99 2
 VLAN_DHCP_WAIT=6               # per-VLAN DHCP timeout (s) during the reach probe
 # ----------------------------------------------------------------------------
 
-say()  { SCREEN_WRITE "$*" 2>/dev/null; }
-glow() { LED "$@" 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
-spin_up()   { CREATE_SPINNER "$*" 2>/dev/null; }
-spin_down() { STOP_SPINNER 2>/dev/null; }
 
 ip_to_int() { local IFS=.; set -- $1; echo $(( ($1<<24)|($2<<16)|($3<<8)|$4 )); }
 int_to_ip() { local i=$1; echo "$(((i>>24)&255)).$(((i>>16)&255)).$(((i>>8)&255)).$((i&255))"; }
@@ -117,10 +113,10 @@ record_check() {
 }
 
 # ------------------------------ SETUP ---------------------------------------
-glow SETUP
+LED SETUP
 CLEAR_SCREEN 2>/dev/null
-say "Jack Survey"
-say "Waiting for link"
+SCREEN_WRITE "Jack Survey"
+SCREEN_WRITE "Waiting for link"
 
 RUN="$LOOT_BASE/$(date -u +%Y%m%dT%H%M%SZ 2>/dev/null || echo run)_$$"
 mkdir -p "$RUN"
@@ -130,7 +126,7 @@ REPORT="$RUN/summary.txt"
 ip link set eth0 up 2>/dev/null
 
 # ------------------------------ LINK ----------------------------------------
-glow SPECIAL
+LED SPECIAL
 LINK="DOWN"
 
 for _ in $(seq 1 "$LINK_WAIT_SECS"); do
@@ -165,9 +161,9 @@ if [ -n "$EXPECTED_DUPLEX" ] && [ -n "$DUPLEX" ]; then
 fi
 
 if [ "$LINK" != "UP" ]; then
-  glow FAIL
-  say "Link: DOWN"
-  say "No carrier"
+  LED FAIL
+  SCREEN_WRITE "Link: DOWN"
+  SCREEN_WRITE "No carrier"
 
   {
     echo "=========================================================="
@@ -191,8 +187,8 @@ if [ "$LINK" != "UP" ]; then
   exit 0
 fi
 
-say "Link: UP"
-say "${SPEED:-?} Mbps ${DUPLEX:-?}"
+SCREEN_WRITE "Link: UP"
+SCREEN_WRITE "${SPEED:-?} Mbps ${DUPLEX:-?}"
 
 # --------------------------- PASSIVE DISCOVERY -------------------------------
 L_NAME="-"; L_PORT="-"; L_DESC="-"; L_MGMT="-"; L_VLAN="-"
@@ -200,9 +196,9 @@ C_DEV="-"; C_PLAT="-"; C_PORT="-"; C_NVLAN="-"; C_ADDR="-"
 DHCP_SRV_SEEN="-"; STP_SEEN="not seen"; ARPN=0
 
 if have tcpdump; then
-  glow STAGE1
-  say "Passive discovery"
-  spin_up "LLDP/CDP/DHCP"
+  LED STAGE1
+  SCREEN_WRITE "Passive discovery"
+  CREATE_SPINNER "LLDP/CDP/DHCP"
 
   PCAP="$RUN/passive.pcap"
   timeout "${PASSIVE_LISTEN_SECS}s" tcpdump -i eth0 -s 0 -w "$PCAP" 2>/dev/null
@@ -243,7 +239,7 @@ if have tcpdump; then
   STP_TMP=$(tcpdump -nn -r "$PCAP" 'stp' 2>/dev/null | head -1)
   [ -n "$STP_TMP" ] && STP_SEEN="present"
 
-  spin_down
+  STOP_SPINNER
 else
   echo "tcpdump not installed; passive LLDP/CDP discovery skipped." > "$RUN/passive_skipped.txt"
   record_check "WARN" "Passive discovery" "tcpdump missing; LLDP/CDP skipped"
@@ -259,8 +255,8 @@ MGMT="${L_MGMT:-$C_ADDR}"
 [ -n "$OBS_VLAN" ] && [ "$OBS_VLAN" != "-" ] && record_check "PASS" "VLAN advertised" "$OBS_VLAN" || record_check "INFO" "VLAN advertised" "not advertised"
 
 # ------------------------------- DHCP ---------------------------------------
-glow STAGE2
-say "DHCP request"
+LED STAGE2
+SCREEN_WRITE "DHCP request"
 NETMODE DHCP_CLIENT 2>/dev/null
 WAIT_FOR_LINK 2>/dev/null
 
@@ -290,11 +286,11 @@ DHCP_RESULT="FAILED"
 
 if [ "$DHCP_RESULT" = "SUCCESS" ]; then
   record_check "PASS" "DHCP" "$IP/$PREFIX in ${DHCP_SECS}s"
-  say "DHCP: OK"
-  say "$IP/$PREFIX"
+  SCREEN_WRITE "DHCP: OK"
+  SCREEN_WRITE "$IP/$PREFIX"
 else
   record_check "WARN" "DHCP" "No lease after ${DHCP_WAIT_SECS}s"
-  say "DHCP: FAILED"
+  SCREEN_WRITE "DHCP: FAILED"
 fi
 
 DHCP_SERVER="$DHCP_SRV_SEEN"
@@ -354,8 +350,8 @@ HTTPS_RESULT="not tested"
 HTTP_RESULT="not tested"
 
 if [ -n "$IP" ]; then
-  glow STAGE3
-  say "Internet tests"
+  LED STAGE3
+  SCREEN_WRITE "Internet tests"
 
   if have nslookup; then
     nslookup "$INTERNET_TEST_HOST" > "$RUN/dns_test.txt" 2>&1
@@ -411,10 +407,10 @@ else
 fi
 
 if [ "$PROBE_VLAN_REACH" = "1" ]; then
-  glow STAGE4
-  say "VLAN reach probe"
+  LED STAGE4
+  SCREEN_WRITE "VLAN reach probe"
   if have ip && have udhcpc; then
-    spin_up "Tagging VLANs (no scan)"
+    CREATE_SPINNER "Tagging VLANs (no scan)"
     lsmod 2>/dev/null | grep -q 8021q || modprobe 8021q 2>/dev/null
     # Restore eth0's default route afterwards: udhcpc on a sub-iface repoints it.
     ORIG_DEFAULT=$(ip route show default 2>/dev/null | head -1)
@@ -458,7 +454,7 @@ if [ "$PROBE_VLAN_REACH" = "1" ]; then
     # Best-effort: put eth0's default route back if the probe stole it.
     [ -n "$ORIG_DEFAULT" ] && ! ip route show default 2>/dev/null | grep -q . \
       && ip route add $ORIG_DEFAULT 2>/dev/null
-    spin_down
+    STOP_SPINNER
   else
     record_check "INFO" "VLAN reachability" "ip/udhcpc missing; reach probe skipped"
   fi
@@ -499,8 +495,8 @@ else
 fi
 
 # ------------------------------ REPORT --------------------------------------
-glow CLEANUP
-say "Writing report"
+LED CLEANUP
+SCREEN_WRITE "Writing report"
 
 {
   echo "=========================================================="
@@ -602,26 +598,26 @@ say "Writing report"
 CLEAR_SCREEN 2>/dev/null
 
 case "$RESULT" in
-  PASS|PASS\ WITH\ NOTES) glow FINISH ;;
-  LIMITED|MISPATCH\ SUSPECTED) glow SPECIAL ;;
-  *) glow FAIL ;;
+  PASS|PASS\ WITH\ NOTES) LED FINISH ;;
+  LIMITED|MISPATCH\ SUSPECTED) LED SPECIAL ;;
+  *) LED FAIL ;;
 esac
 
-say "Jack: $RESULT"
-say "Link: ${SPEED:-?} ${DUPLEX:-?}"
+SCREEN_WRITE "Jack: $RESULT"
+SCREEN_WRITE "Link: ${SPEED:-?} ${DUPLEX:-?}"
 
 if [ -n "$IP" ]; then
-  say "IP: $IP/$PREFIX"
+  SCREEN_WRITE "IP: $IP/$PREFIX"
 else
-  say "DHCP: FAILED"
+  SCREEN_WRITE "DHCP: FAILED"
 fi
 
-[ -n "$SWITCH" ] && [ "$SWITCH" != "-" ] && say "Sw: $SWITCH"
-[ -n "$PORT" ] && [ "$PORT" != "-" ] && say "Port: $PORT"
-say "VLAN: $VLAN_DISPLAY"
-[ "$VLANS_SEEN" != "-" ] && say "Trunk VLANs: $VLANS_SEEN"
-[ "$REACH_VLANS" != "-" ] && say "Reach: $REACH_VLANS"
-say "Net: DNS $DNS_RESULT HTTPS $HTTPS_RESULT"
+[ -n "$SWITCH" ] && [ "$SWITCH" != "-" ] && SCREEN_WRITE "Sw: $SWITCH"
+[ -n "$PORT" ] && [ "$PORT" != "-" ] && SCREEN_WRITE "Port: $PORT"
+SCREEN_WRITE "VLAN: $VLAN_DISPLAY"
+[ "$VLANS_SEEN" != "-" ] && SCREEN_WRITE "Trunk VLANs: $VLANS_SEEN"
+[ "$REACH_VLANS" != "-" ] && SCREEN_WRITE "Reach: $REACH_VLANS"
+SCREEN_WRITE "Net: DNS $DNS_RESULT HTTPS $HTTPS_RESULT"
 
 ALERT "Jack Survey $RESULT: ${IP:-no DHCP}, ${SPEED:-?}Mbps ${DUPLEX:-?}" 12 2>/dev/null
 exit 0

@@ -79,12 +79,6 @@ network_cidr() {            # network_cidr <ip> <prefix> -> "net/prefix"
 }
 have() { command -v "$1" >/dev/null 2>&1; }
 
-# Quiet wrappers so a missing display/LED binary never aborts the scan.
-say()  { SCREEN_WRITE "$*" 2>/dev/null; }      # one line to the screen
-glow() { LED "$@" 2>/dev/null; }               # LED state/colour
-spin_up()   { CREATE_SPINNER "$*" 2>/dev/null; }
-spin_down() { STOP_SPINNER 2>/dev/null; }
-
 # Randomize eth0's MAC in raw shell (no DuckyScript command exists for this).
 # Prefer macchanger; otherwise build a random locally-administered unicast MAC.
 randomize_mac() {
@@ -172,13 +166,13 @@ scan_subnet() {                                 # scan_subnet <iface> <cidr> <ba
 
 
 # ------------------------------ PHASE: SETUP --------------------------------
-glow SETUP
+LED SETUP
 CLEAR_SCREEN 2>/dev/null
-say "Wired recon starting"
+SCREEN_WRITE "Wired recon starting"
 
 if ! have nmap; then
-  glow FAIL
-  say "nmap missing - abort"
+  LED FAIL
+  SCREEN_WRITE "nmap missing - abort"
   ALERT "nmap not installed on this device" 8 2>/dev/null
   exit 1
 fi
@@ -192,12 +186,12 @@ VLANF="$RUN/vlans.txt"
 : > "$VLANF"; : > "$HOSTSF"; : > "$PORTSF"   # accumulators (native + tagged VLANs)
 
 # Optional: identity + clock hygiene before we touch the wire.
-[ "$RANDOMIZE_MAC_ADDR" = "1" ] && { say "Randomizing MAC"; randomize_mac; }
+[ "$RANDOMIZE_MAC_ADDR" = "1" ] && { SCREEN_WRITE "Randomizing MAC"; randomize_mac; }
 
 
 # --------------------------- PHASE: NETWORK UP ------------------------------
-glow SPECIAL
-say "Bringing up eth0 ($NET_MODE)"
+LED SPECIAL
+SCREEN_WRITE "Bringing up eth0 ($NET_MODE)"
 case "$NET_MODE" in
   STATIC) NETMODE STATIC IP_${STATIC_IP} SUBNET_${STATIC_SUBNET} GATEWAY_${STATIC_GATEWAY} 2>/dev/null ;;
   AUTO)   NETMODE AUTO 2>/dev/null ;;
@@ -217,9 +211,9 @@ for i in $(seq 1 "$DHCP_WAIT_SECS"); do
 done
 
 if [ -z "$IP" ]; then
-  glow FAIL
-  say "No lease on eth0"
-  say "NAC / 802.1X? dead port?"
+  LED FAIL
+  SCREEN_WRITE "No lease on eth0"
+  SCREEN_WRITE "NAC / 802.1X? dead port?"
   { echo "FAILED: no IPv4 on eth0 after ${DHCP_WAIT_SECS}s (NET_MODE=$NET_MODE)."
     echo "Likely 802.1X/NAC, no DHCP, or a dead drop."; } > "$REPORT"
   ALERT "No network on eth0 - see loot" 8 2>/dev/null
@@ -228,25 +222,25 @@ fi
 
 GATEWAY=$(ip route 2>/dev/null | awk '/default/{print $3; exit}')
 ACCESS_CIDR=$(network_cidr "$IP" "$PREFIX")
-say "IP $IP/$PREFIX"
-say "GW $GATEWAY"
+SCREEN_WRITE "IP $IP/$PREFIX"
+SCREEN_WRITE "GW $GATEWAY"
 
 # Best-effort clock sync so the loot timestamp is real (non-fatal if offline).
 ENABLE_NTP 2>/dev/null
 
 
 # --------------------------- PHASE: ROUTER ----------------------------------
-glow STAGE1
-say "Profiling gateway"
+LED STAGE1
+SCREEN_WRITE "Profiling gateway"
 ROUTER_OS="-"
 if [ -n "$GATEWAY" ]; then
-  spin_up "Scanning router $GATEWAY"
+  CREATE_SPINNER "Scanning router $GATEWAY"
   if [ "$ROUTER_OS_DETECT" = "1" ]; then
     nmap -O $NMAP_TIMING --host-timeout 120s -oA "$RUN/router" "$GATEWAY" >/dev/null 2>&1
   else
     nmap -sV $NMAP_TIMING --host-timeout "$HOST_TIMEOUT" -oA "$RUN/router" "$GATEWAY" >/dev/null 2>&1
   fi
-  spin_down
+  STOP_SPINNER
   # Pull a single best OS string out of the router scan.
   ROUTER_OS=$(grep -m1 -E '^OS details:'            "$RUN/router.nmap" 2>/dev/null | sed 's/^OS details: //')
   [ -z "$ROUTER_OS" ] && ROUTER_OS=$(grep -m1 -E '^Running:'           "$RUN/router.nmap" 2>/dev/null | sed 's/^Running: //')
@@ -256,26 +250,26 @@ fi
 
 
 # ----------------------- PHASE: HOST DISCOVERY ------------------------------
-glow STAGE2
-say "Discovering hosts"
-spin_up "ARP/ping sweep $ACCESS_CIDR"
+LED STAGE2
+SCREEN_WRITE "Discovering hosts"
+CREATE_SPINNER "ARP/ping sweep $ACCESS_CIDR"
 # On a local segment, nmap uses ARP for discovery: reliable even when ICMP is
 # filtered. We scan the whole access subnet derived from our own lease.
 nmap -sn $NMAP_TIMING -oA "$RUN/discovery" "$IP/$PREFIX" >/dev/null 2>&1
-spin_down
+STOP_SPINNER
 awk '/Status: Up/{print $2}' "$RUN/discovery.gnmap" 2>/dev/null | sort -u > "$RUN/up_hosts.txt"
 UPCOUNT=$(wc -l < "$RUN/up_hosts.txt" 2>/dev/null | tr -d ' ')
 [ -z "$UPCOUNT" ] && UPCOUNT=0
-say "$UPCOUNT hosts up"
+SCREEN_WRITE "$UPCOUNT hosts up"
 
 
 # --------------------- PHASE: SERVICE / PORT SCAN ---------------------------
-glow STAGE3
+LED STAGE3
 if [ "$UPCOUNT" -gt 0 ]; then
-  spin_up "Port/service scan x$UPCOUNT"
+  CREATE_SPINNER "Port/service scan x$UPCOUNT"
   nmap -sV $NMAP_TIMING --top-ports "$TOP_PORTS" --host-timeout "$HOST_TIMEOUT" \
        $EXTRA_NMAP -iL "$RUN/up_hosts.txt" -oA "$RUN/services" >/dev/null 2>&1
-  spin_down
+  STOP_SPINNER
 else
   : > "$RUN/services.nmap"
 fi
@@ -285,8 +279,8 @@ parse_services "$RUN/services.nmap"
 
 
 # --------------------------- PHASE: VLANs -----------------------------------
-glow STAGE4
-say "Mapping VLANs"
+LED STAGE4
+SCREEN_WRITE "Mapping VLANs"
 {
   echo "Access subnet (untagged): $ACCESS_CIDR   [our lease: $IP/$PREFIX]"
 } >> "$VLANF"
@@ -295,10 +289,10 @@ say "Mapping VLANs"
 # and the tagged VID list on a trunk. Needs tcpdump.
 PASSIVE_TAGS=""
 if have tcpdump; then
-  spin_up "Listening ${PASSIVE_VLAN_SECS}s for 802.1Q"
+  CREATE_SPINNER "Listening ${PASSIVE_VLAN_SECS}s for 802.1Q"
   timeout "${PASSIVE_VLAN_SECS}s" tcpdump -e -nn -i eth0 -c 300 vlan 2>/dev/null \
     | grep -oE 'vlan [0-9]+' | awk '{print $2}' | sort -un > "$RUN/_tags.txt"
-  spin_down
+  STOP_SPINNER
   PASSIVE_TAGS=$(tr '\n' ' ' < "$RUN/_tags.txt" 2>/dev/null)
   if [ -n "$PASSIVE_TAGS" ]; then
     echo "Tagged VLAN IDs seen passively (trunk port): $PASSIVE_TAGS" >> "$VLANF"
@@ -321,8 +315,8 @@ if [ "$SCAN_TAGGED_VLANS" = "1" ]; then
     lsmod 2>/dev/null | grep -q 8021q || modprobe 8021q 2>/dev/null   # ensure 802.1Q support
     echo "Tagged-VLAN scan (VIDs: $CANDIDATES):" >> "$VLANF"
     for vid in $CANDIDATES; do
-      glow STAGE5
-      spin_up "VLAN $vid: lease + scan"
+      LED STAGE5
+      CREATE_SPINNER "VLAN $vid: lease + scan"
       ip link add link eth0 name "eth0.$vid" type vlan id "$vid" 2>/dev/null
       if ! ip link show "eth0.$vid" >/dev/null 2>&1; then
         # Interface never came into being: the 802.1Q kernel module is missing.
@@ -347,7 +341,7 @@ if [ "$SCAN_TAGGED_VLANS" = "1" ]; then
         ip link set "eth0.$vid" down 2>/dev/null
         ip link del "eth0.$vid" 2>/dev/null
       fi
-      spin_down
+      STOP_SPINNER
     done
   else
     echo "Tagged-VLAN scan requested but 'ip'/'udhcpc' unavailable - skipped." >> "$VLANF"
@@ -356,8 +350,8 @@ fi
 
 
 # --------------------------- PHASE: WRITE LOOT ------------------------------
-glow CLEANUP
-say "Writing loot"
+LED CLEANUP
+SCREEN_WRITE "Writing loot"
 # Total live hosts across the native VLAN + any scanned tagged VLANs.
 UPCOUNT=$(wc -l < "$HOSTSF" 2>/dev/null | tr -d ' '); [ -z "$UPCOUNT" ] && UPCOUNT=0
 CREATE_PROGRESS_BAR "Building report" 2>/dev/null
@@ -435,12 +429,12 @@ rm -f "$HOSTSF" "$PORTSF" "$RUN/_tags.txt" "$RUN"/vlan*_up.txt 2>/dev/null
 
 
 # ------------------------------ PHASE: DONE ---------------------------------
-glow FINISH
+LED FINISH
 PORTLINES=$(grep -cE '^    [0-9]+/(tcp|udp)' "$REPORT" 2>/dev/null)
 [ -z "$PORTLINES" ] && PORTLINES=0
 CLEAR_SCREEN 2>/dev/null
-say "Recon complete"
-say "Hosts: $UPCOUNT  Ports: $PORTLINES"
-say "Loot: ${RUN#/root/}"
+SCREEN_WRITE "Recon complete"
+SCREEN_WRITE "Hosts: $UPCOUNT  Ports: $PORTLINES"
+SCREEN_WRITE "Loot: ${RUN#/root/}"
 ALERT "Recon done: $UPCOUNT hosts, $PORTLINES open ports. Loot saved." 12 2>/dev/null
 exit 0

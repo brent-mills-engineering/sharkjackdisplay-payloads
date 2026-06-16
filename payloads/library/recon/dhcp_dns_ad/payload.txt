@@ -39,10 +39,6 @@ PASSIVE_VLAN_SECS=12          # passive 802.1Q listen window (needs tcpdump)
 # ----------------------------------------------------------------------------
 
 # ============================ helpers =======================================
-say()  { SCREEN_WRITE "$*" 2>/dev/null; }
-glow() { LED "$@" 2>/dev/null; }
-spin_up()   { CREATE_SPINNER "$*" 2>/dev/null; }
-spin_down() { STOP_SPINNER 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 field() { grep -iE "$2" "$1" 2>/dev/null | head -1 | sed 's/^[^:]*: *//' | sed 's/^[ \t|]*//; s/[ \t]*$//'; }
 # ============================================================================
@@ -80,7 +76,7 @@ run_over_vlans() {                              # run_over_vlans <cb> <native_ne
   vids=$(vlan_candidates)
   for vid in $vids; do
     ip link add link eth0 name "eth0.$vid" type vlan id "$vid" 2>/dev/null
-    ip link show "eth0.$vid" >/dev/null 2>&1 || { say "VLAN $vid: no 802.1Q"; continue; }
+    ip link show "eth0.$vid" >/dev/null 2>&1 || { SCREEN_WRITE "VLAN $vid: no 802.1Q"; continue; }
     ip link set "eth0.$vid" up 2>/dev/null
     udhcpc -i "eth0.$vid" -n -q -t 4 -T 3 >/dev/null 2>&1
     vline=$(ip addr show "eth0.$vid" 2>/dev/null | grep -oE 'inet [0-9.]+/[0-9]+' | head -1 | awk '{print $2}')
@@ -98,10 +94,10 @@ run_over_vlans() {                              # run_over_vlans <cb> <native_ne
 # ----------------------------------------------------------------------------
 
 # ------------------------------ PHASE: SETUP --------------------------------
-glow SETUP
+LED SETUP
 CLEAR_SCREEN 2>/dev/null
-say "DHCP/DNS/AD profiler"
-if ! have nmap; then glow FAIL; say "nmap missing - abort"; ALERT "nmap not installed" 8 2>/dev/null; exit 1; fi
+SCREEN_WRITE "DHCP/DNS/AD profiler"
+if ! have nmap; then LED FAIL; SCREEN_WRITE "nmap missing - abort"; ALERT "nmap not installed" 8 2>/dev/null; exit 1; fi
 
 RUN="$LOOT_BASE/$(date -u +%Y%m%dT%H%M%SZ 2>/dev/null || echo run)_$$"
 mkdir -p "$RUN"
@@ -109,8 +105,8 @@ REPORT="$RUN/summary.txt"
 
 
 # --------------------------- PHASE: NETWORK UP ------------------------------
-glow SPECIAL
-say "DHCP lease (eth0)"
+LED SPECIAL
+SCREEN_WRITE "DHCP lease (eth0)"
 NETMODE DHCP_CLIENT 2>/dev/null
 WAIT_FOR_LINK 2>/dev/null            # framework: block until carrier is up (the race fix)
 # Bounded lease wait: WAIT_FOR_IP blocks forever, so keep our own timeout to fail
@@ -122,20 +118,20 @@ for _ in $(seq 1 "$DHCP_WAIT_SECS"); do
   sleep 1
 done
 if [ -z "$IP" ]; then
-  glow FAIL; say "No lease - 802.1X?"
+  LED FAIL; SCREEN_WRITE "No lease - 802.1X?"
   echo "FAILED: no DHCP lease on eth0 (NAC/802.1X, no DHCP, or dead drop)." > "$REPORT"
   ALERT "No DHCP lease - see loot" 8 2>/dev/null; exit 1
 fi
 GATEWAY=$(ip route 2>/dev/null | awk '/default/{print $3; exit}')
-say "IP $IP/$PREFIX"
+SCREEN_WRITE "IP $IP/$PREFIX"
 
 
 # --------------------------- PHASE: DHCP PROFILE ----------------------------
-glow STAGE1
-say "Profiling DHCP"
-spin_up "DHCP discover"
+LED STAGE1
+SCREEN_WRITE "Profiling DHCP"
+CREATE_SPINNER "DHCP discover"
 nmap --script broadcast-dhcp-discover -e eth0 2>/dev/null > "$RUN/dhcp.txt"
-spin_down
+STOP_SPINNER
 # Prefer DHCP-advertised values; fall back to the resolver config OpenWrt wrote.
 DNS=$(field "$RUN/dhcp.txt" 'Domain Name Server')
 DOMAIN=$(field "$RUN/dhcp.txt" 'Domain Name')
@@ -151,21 +147,21 @@ DNS1=$(echo "$DNS" | awk '{print $1}')
 
 
 # --------------------------- PHASE: DNS / AD --------------------------------
-glow STAGE2
+LED STAGE2
 DCS="-"; ZONE="not attempted"; RECUR="-"; PTRN=0
 if [ -n "$DOMAIN" ]; then
-  say "AD lookup: $DOMAIN"
-  spin_up "SRV records ($DOMAIN)"
+  SCREEN_WRITE "AD lookup: $DOMAIN"
+  CREATE_SPINNER "SRV records ($DOMAIN)"
   nmap --script dns-srv-enum --script-args "dns-srv-enum.domain=$DOMAIN" 2>/dev/null > "$RUN/ad_srv.txt"
-  spin_down
+  STOP_SPINNER
   # Domain controllers = unique hosts appearing in the SRV results.
   DCS=$(grep -oE '[A-Za-z0-9_-]+\.'"$(echo "$DOMAIN" | sed 's/\./\\./g')" "$RUN/ad_srv.txt" 2>/dev/null | sort -u | tr '\n' ' ')
   [ -z "$DCS" ] && DCS="none found"
 
   if [ "$TRY_ZONE_TRANSFER" = "1" ] && [ -n "$DNS1" ]; then
-    spin_up "AXFR @ $DNS1"
+    CREATE_SPINNER "AXFR @ $DNS1"
     nmap -p53 --script dns-zone-transfer --script-args "dns-zone-transfer.domain=$DOMAIN" "$DNS1" 2>/dev/null > "$RUN/axfr.txt"
-    spin_down
+    STOP_SPINNER
     if grep -qiE 'Domain Server.*IN|[0-9]+ records|hostname|IN[ \t]+(A|CNAME|MX|NS)' "$RUN/axfr.txt" 2>/dev/null; then
       ZONE="ALLOWED (transfer succeeded - finding) - see axfr.txt"
     else
@@ -173,23 +169,23 @@ if [ -n "$DOMAIN" ]; then
     fi
   fi
 else
-  say "No domain advertised"
+  SCREEN_WRITE "No domain advertised"
 fi
 
 # DNS open-recursion check on the internal resolver.
 if [ -n "$DNS1" ]; then
-  spin_up "DNS recursion check"
+  CREATE_SPINNER "DNS recursion check"
   nmap -sU -p53 --script dns-recursion "$DNS1" 2>/dev/null > "$RUN/dns_recursion.txt"
-  spin_down
+  STOP_SPINNER
   if grep -qi 'Recursion appears to be enabled' "$RUN/dns_recursion.txt" 2>/dev/null; then RECUR="enabled"; else RECUR="not detected"; fi
 fi
 
 # Low-noise naming sample: reverse-DNS the /24 (nmap -sL sends no host probes).
 if [ "$PTR_SWEEP" = "1" ]; then
-  spin_up "PTR naming sample"
+  CREATE_SPINNER "PTR naming sample"
   nmap -sL "$IP/$PREFIX" 2>/dev/null | grep 'Nmap scan report for' | grep '(' \
     | sed 's/Nmap scan report for //' | sort -u > "$RUN/ptr_names.txt"
-  spin_down
+  STOP_SPINNER
   PTRN=$(wc -l < "$RUN/ptr_names.txt" 2>/dev/null | tr -d ' '); [ -z "$PTRN" ] && PTRN=0
 fi
 
@@ -201,7 +197,7 @@ fi
 scan_one() {                                    # scan_one <iface> <cidr> <label>
   local iface=$1 cidr=$2 label=$3 vsrv vdns vdom
   [ "$label" = "access" ] && return
-  say "$label: DHCP + naming"
+  SCREEN_WRITE "$label: DHCP + naming"
   nmap --script broadcast-dhcp-discover -e "$iface" 2>/dev/null > "$RUN/dhcp_$label.txt"
   vsrv=$(field "$RUN/dhcp_$label.txt" 'Server Identifier')
   vdns=$(field "$RUN/dhcp_$label.txt" 'Domain Name Server')
@@ -218,15 +214,15 @@ scan_one() {                                    # scan_one <iface> <cidr> <label
   } >> "$RUN/vlan_profiles.txt"
 }
 if [ "$SCAN_TAGGED_VLANS" = "1" ]; then
-  glow STAGE3
-  say "Per-VLAN profiles"
+  LED STAGE3
+  SCREEN_WRITE "Per-VLAN profiles"
   run_over_vlans scan_one "$(network_cidr "$IP" "$PREFIX")"
 fi
 
 
 # --------------------------- PHASE: WRITE LOOT ------------------------------
-glow CLEANUP
-say "Writing loot"
+LED CLEANUP
+SCREEN_WRITE "Writing loot"
 {
   echo "=========================================================="
   echo " SHARK JACK DISPLAY - DHCP + DNS / AD PROFILE"
@@ -267,10 +263,10 @@ say "Writing loot"
 
 
 # ------------------------------ PHASE: DONE ---------------------------------
-glow FINISH
+LED FINISH
 CLEAR_SCREEN 2>/dev/null
-say "Profile complete"
-say "Domain: ${DOMAIN:-none}"
-say "AXFR: $ZONE"
+SCREEN_WRITE "Profile complete"
+SCREEN_WRITE "Domain: ${DOMAIN:-none}"
+SCREEN_WRITE "AXFR: $ZONE"
 ALERT "DHCP/DNS/AD done. Domain: ${DOMAIN:-none}. AXFR: $ZONE" 12 2>/dev/null
 exit 0
