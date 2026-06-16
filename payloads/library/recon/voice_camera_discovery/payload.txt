@@ -40,7 +40,6 @@ LOOT_BASE="/root/loot/voice_camera"
 # ----------------------------------------------------------------------------
 
 # ============================ helpers =======================================
-say()  { SCREEN_WRITE "$*" 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 # Lift an LLDP TLV value out of tcpdump -v output (value inline or next line).
@@ -86,11 +85,11 @@ oui_class() {
 # ------------------------------ PHASE: SETUP --------------------------------
 LED SETUP
 CLEAR_SCREEN 2>/dev/null
-say "Voice & Camera Discovery"
+SCREEN_WRITE "Voice & Camera Discovery"
 
 if ! have tcpdump; then
   LED FAIL
-  say "tcpdump missing"
+  SCREEN_WRITE "tcpdump missing"
   ALERT "Install tcpdump: opkg install tcpdump" 8 2>/dev/null
   exit 1
 fi
@@ -107,7 +106,7 @@ WAIT_FOR_LINK 2>/dev/null            # don't start the capture before carrier is
 
 # ---------------------------- PHASE: LISTEN ---------------------------------
 LED SPECIAL
-say "Listening ${LISTEN_SECS}s"
+SCREEN_WRITE "Listening ${LISTEN_SECS}s"
 CREATE_PROGRESS_BAR "Capturing traffic" 2>/dev/null
 # Promisc left ON (no -p) so multicast control/discovery frames arrive.
 tcpdump -i eth0 -s 0 -w "$PCAP" 2>/dev/null &
@@ -122,7 +121,7 @@ SET_PROGRESS 100 2>/dev/null
 
 # --------------------------- PHASE: DECODE ----------------------------------
 LED STAGE1
-say "Decoding capture"
+SCREEN_WRITE "Decoding capture"
 
 # --- Switch neighbors: LLDP (0x88cc) + CDP (Cisco multicast) ---
 CREATE_SPINNER "LLDP / CDP"
@@ -185,7 +184,7 @@ STOP_SPINNER
 
 # --------------------------- PHASE: CLASSIFY --------------------------------
 LED STAGE2
-say "Classifying devices"
+SCREEN_WRITE "Classifying devices"
 
 mac_for() { awk -F'\t' -v ip="$1" '$1==ip{print $2; exit}' "$RUN/arp_hosts.tsv" 2>/dev/null; }
 
@@ -231,7 +230,7 @@ VOICE_SUMMARY="$VOICE_VLAN_LLDP"
 
 # --------------------------- PHASE: WRITE LOOT ------------------------------
 LED CLEANUP
-say "Writing loot"
+SCREEN_WRITE "Writing loot"
 {
   echo "=========================================================="
   echo " SHARK JACK DISPLAY - VOICE & CAMERA DISCOVERY"
@@ -294,9 +293,9 @@ say "Writing loot"
 # ------------------------------ PHASE: DONE ---------------------------------
 LED FINISH
 CLEAR_SCREEN 2>/dev/null
-say "Voice/Camera done"
-say "Phones: $NPHONE"
-say "Cameras: $NCAM"
-say "Voice VLAN: $VOICE_SUMMARY"
+SCREEN_WRITE "Voice/Camera done"
+SCREEN_WRITE "Phones: $NPHONE"
+SCREEN_WRITE "Cameras: $NCAM"
+SCREEN_WRITE "Voice VLAN: $VOICE_SUMMARY"
 ALERT "Voice/Camera: $NPHONE phones, $NCAM cameras, voice VLAN $VOICE_SUMMARY" 12 2>/dev/null
 exit 0

@@ -40,7 +40,6 @@ LOOT_BASE="/root/loot/poe_survey"
 # ----------------------------------------------------------------------------
 
 # ============================ helpers =======================================
-say()  { SCREEN_WRITE "$*" 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 lldp_field() {
@@ -71,11 +70,11 @@ class_power() {
 # ------------------------------ PHASE: SETUP --------------------------------
 LED SETUP
 CLEAR_SCREEN 2>/dev/null
-say "PoE Survey"
+SCREEN_WRITE "PoE Survey"
 
 if ! have tcpdump; then
   LED FAIL
-  say "tcpdump missing"
+  SCREEN_WRITE "tcpdump missing"
   ALERT "Install tcpdump: opkg install tcpdump" 8 2>/dev/null
   exit 1
 fi
@@ -92,7 +91,7 @@ WAIT_FOR_LINK 2>/dev/null
 
 # ---------------------------- PHASE: LISTEN ---------------------------------
 LED SPECIAL
-say "Listening ${LISTEN_SECS}s"
+SCREEN_WRITE "Listening ${LISTEN_SECS}s"
 CREATE_PROGRESS_BAR "Capturing LLDP/CDP" 2>/dev/null
 tcpdump -i eth0 -s 0 -w "$PCAP" 2>/dev/null &
 TPID=$!
@@ -106,7 +105,7 @@ SET_PROGRESS 100 2>/dev/null
 
 # --------------------------- PHASE: DECODE ----------------------------------
 LED STAGE1
-say "Reading power TLVs"
+SCREEN_WRITE "Reading power TLVs"
 CREATE_SPINNER "LLDP / CDP power"
 
 tcpdump -nn -v -r "$PCAP" 'ether proto 0x88cc' 2>/dev/null > "$RUN/lldp.txt"
@@ -173,7 +172,7 @@ fi
 
 # --------------------------- PHASE: WRITE LOOT ------------------------------
 LED CLEANUP
-say "Writing loot"
+SCREEN_WRITE "Writing loot"
 STOP_SPINNER
 {
   echo "=========================================================="
@@ -226,10 +225,10 @@ STOP_SPINNER
 # ------------------------------ PHASE: DONE ---------------------------------
 LED "$VLED"
 CLEAR_SCREEN 2>/dev/null
-say "PoE: $VERDICT"
-[ "$VERDICT" = "PoE AVAILABLE" ] && say "Class: ${POE_CLASS:--}"
-[ "$ALLOC_W" != "-" ] && say "Alloc: $ALLOC_W"
-[ "$ALLOC_W" = "-" ] && [ "$CDP_AVAIL_W" != "-" ] && say "Avail: $CDP_AVAIL_W"
-say "Sw: ${L_NAME:-${C_DEV:-unknown}}"
+SCREEN_WRITE "PoE: $VERDICT"
+[ "$VERDICT" = "PoE AVAILABLE" ] && SCREEN_WRITE "Class: ${POE_CLASS:--}"
+[ "$ALLOC_W" != "-" ] && SCREEN_WRITE "Alloc: $ALLOC_W"
+[ "$ALLOC_W" = "-" ] && [ "$CDP_AVAIL_W" != "-" ] && SCREEN_WRITE "Avail: $CDP_AVAIL_W"
+SCREEN_WRITE "Sw: ${L_NAME:-${C_DEV:-unknown}}"
 ALERT "PoE Survey: $VERDICT (class ${POE_CLASS:--}, alloc ${ALLOC_W})" 12 2>/dev/null
 exit 0

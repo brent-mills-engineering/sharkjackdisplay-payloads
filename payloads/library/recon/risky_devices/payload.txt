@@ -50,7 +50,6 @@ PASSIVE_VLAN_SECS=12          # passive 802.1Q listen window (needs tcpdump)
 # ----------------------------------------------------------------------------
 
 # ============================ helpers =======================================
-say()  { SCREEN_WRITE "$*" 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 # Built-in OUI table for the high-signal DIY devices nmap's DB often misses.
@@ -150,7 +149,7 @@ run_over_vlans() {                              # run_over_vlans <cb> <native_ne
   vids=$(vlan_candidates)
   for vid in $vids; do
     ip link add link eth0 name "eth0.$vid" type vlan id "$vid" 2>/dev/null
-    ip link show "eth0.$vid" >/dev/null 2>&1 || { say "VLAN $vid: no 802.1Q"; continue; }
+    ip link show "eth0.$vid" >/dev/null 2>&1 || { SCREEN_WRITE "VLAN $vid: no 802.1Q"; continue; }
     ip link set "eth0.$vid" up 2>/dev/null
     udhcpc -i "eth0.$vid" -n -q -t 4 -T 3 >/dev/null 2>&1
     vline=$(ip addr show "eth0.$vid" 2>/dev/null | grep -oE 'inet [0-9.]+/[0-9]+' | head -1 | awk '{print $2}')
@@ -170,8 +169,8 @@ run_over_vlans() {                              # run_over_vlans <cb> <native_ne
 # ------------------------------ PHASE: SETUP --------------------------------
 LED SETUP
 CLEAR_SCREEN 2>/dev/null
-say "Risky device hunt"
-if ! have nmap; then LED FAIL; say "nmap missing - abort"; ALERT "nmap not installed" 8 2>/dev/null; exit 1; fi
+SCREEN_WRITE "Risky device hunt"
+if ! have nmap; then LED FAIL; SCREEN_WRITE "nmap missing - abort"; ALERT "nmap not installed" 8 2>/dev/null; exit 1; fi
 RUN="$LOOT_BASE/$(date -u +%Y%m%dT%H%M%SZ 2>/dev/null || echo run)_$$"
 mkdir -p "$RUN"; REPORT="$RUN/summary.txt"
 ROWS="$RUN/_rows.tsv"; : > "$ROWS"
@@ -179,7 +178,7 @@ ROWS="$RUN/_rows.tsv"; : > "$ROWS"
 
 # --------------------------- PHASE: NETWORK UP ------------------------------
 LED SPECIAL
-say "DHCP lease (eth0)"
+SCREEN_WRITE "DHCP lease (eth0)"
 NETMODE DHCP_CLIENT 2>/dev/null
 WAIT_FOR_LINK 2>/dev/null            # framework: block until carrier is up (the race fix)
 # Bounded lease wait: WAIT_FOR_IP blocks forever, so keep our own timeout to fail
@@ -191,11 +190,11 @@ for _ in $(seq 1 "$DHCP_WAIT_SECS"); do
   sleep 1
 done
 if [ -z "$IP" ]; then
-  LED FAIL; say "No lease - 802.1X?"
+  LED FAIL; SCREEN_WRITE "No lease - 802.1X?"
   echo "FAILED: no DHCP lease on eth0 (NAC/802.1X, no DHCP, or dead drop)." > "$REPORT"
   ALERT "No DHCP lease - see loot" 8 2>/dev/null; exit 1
 fi
-say "IP $IP/$PREFIX"
+SCREEN_WRITE "IP $IP/$PREFIX"
 
 
 # ----------------------- PHASE: DISCOVER + SCAN -----------------------------
@@ -207,7 +206,7 @@ scan_one() {                                    # scan_one <iface> <cidr> <label
   awk '/Status: Up/{print $2}' "$RUN/disc_$label.gnmap" 2>/dev/null | sort -u > "$RUN/up_$label.txt"
   n=$(wc -l < "$RUN/up_$label.txt" 2>/dev/null | tr -d ' '); [ -z "$n" ] && n=0
   [ "$n" -eq 0 ] && return
-  say "$label: $n hosts"
+  SCREEN_WRITE "$label: $n hosts"
   [ "$OS_DETECT" = "1" ] && OSFLAG="-O --osscan-guess"
   # shellcheck disable=SC2086
   nmap -Pn $NMAP_TIMING --host-timeout "$HOST_TIMEOUT" $OSFLAG -sV -p "$PORTSET" \
@@ -217,7 +216,7 @@ scan_one() {                                    # scan_one <iface> <cidr> <label
 }
 
 LED STAGE1
-say "Discovering + scanning"
+SCREEN_WRITE "Discovering + scanning"
 CREATE_SPINNER "Scan (native + tagged VLANs)"
 NATIVE_CIDR=$(network_cidr "$IP" "$PREFIX")
 run_over_vlans scan_one "$NATIVE_CIDR"
@@ -228,7 +227,7 @@ cat "$RUN"/services_*.txt > "$RUN/services.txt" 2>/dev/null
 cat "$RUN"/snmp_*.txt     > "$RUN/snmp.txt"     2>/dev/null
 cat "$RUN"/up_*.txt 2>/dev/null | sort -u > "$RUN/up.txt"
 UPCOUNT=$(wc -l < "$RUN/up.txt" 2>/dev/null | tr -d ' '); [ -z "$UPCOUNT" ] && UPCOUNT=0
-say "$UPCOUNT hosts up"
+SCREEN_WRITE "$UPCOUNT hosts up"
 if [ "$UPCOUNT" -eq 0 ]; then
   LED FAIL; echo "No live hosts discovered on $IP/$PREFIX (any VLAN)." > "$REPORT"
   ALERT "No hosts found" 8 2>/dev/null; exit 0
@@ -244,7 +243,7 @@ fi
 
 # --------------------------- PHASE: CLASSIFY --------------------------------
 LED STAGE4
-say "Classifying devices"
+SCREEN_WRITE "Classifying devices"
 CREATE_PROGRESS_BAR "Classifying" 2>/dev/null
 
 # Parse services.txt into per-host records: IP HOST MAC VENDOR OS PORTNUMS PORTSVC BANNER
@@ -300,7 +299,7 @@ SET_PROGRESS 100 2>/dev/null
 
 # --------------------------- PHASE: WRITE LOOT ------------------------------
 LED CLEANUP
-say "Writing loot"
+SCREEN_WRITE "Writing loot"
 FLAGGED=$(awk -F'\t' '$1<=3' "$ROWS" 2>/dev/null | wc -l | tr -d ' ')
 {
   echo "=========================================================="
@@ -346,7 +345,7 @@ rm -f "$ROWS" "$RUN/_hosts.tsv" 2>/dev/null
 # ------------------------------ PHASE: DONE ---------------------------------
 LED FINISH
 CLEAR_SCREEN 2>/dev/null
-say "Risky hunt done"
-say "Flagged: $FLAGGED / $UPCOUNT"
+SCREEN_WRITE "Risky hunt done"
+SCREEN_WRITE "Flagged: $FLAGGED / $UPCOUNT"
 ALERT "Risky device scan done: $FLAGGED of $UPCOUNT hosts flagged for review." 12 2>/dev/null
 exit 0

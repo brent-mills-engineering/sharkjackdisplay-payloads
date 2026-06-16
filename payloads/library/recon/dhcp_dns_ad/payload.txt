@@ -39,7 +39,6 @@ PASSIVE_VLAN_SECS=12          # passive 802.1Q listen window (needs tcpdump)
 # ----------------------------------------------------------------------------
 
 # ============================ helpers =======================================
-say()  { SCREEN_WRITE "$*" 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 field() { grep -iE "$2" "$1" 2>/dev/null | head -1 | sed 's/^[^:]*: *//' | sed 's/^[ \t|]*//; s/[ \t]*$//'; }
 # ============================================================================
@@ -77,7 +76,7 @@ run_over_vlans() {                              # run_over_vlans <cb> <native_ne
   vids=$(vlan_candidates)
   for vid in $vids; do
     ip link add link eth0 name "eth0.$vid" type vlan id "$vid" 2>/dev/null
-    ip link show "eth0.$vid" >/dev/null 2>&1 || { say "VLAN $vid: no 802.1Q"; continue; }
+    ip link show "eth0.$vid" >/dev/null 2>&1 || { SCREEN_WRITE "VLAN $vid: no 802.1Q"; continue; }
     ip link set "eth0.$vid" up 2>/dev/null
     udhcpc -i "eth0.$vid" -n -q -t 4 -T 3 >/dev/null 2>&1
     vline=$(ip addr show "eth0.$vid" 2>/dev/null | grep -oE 'inet [0-9.]+/[0-9]+' | head -1 | awk '{print $2}')
@@ -97,8 +96,8 @@ run_over_vlans() {                              # run_over_vlans <cb> <native_ne
 # ------------------------------ PHASE: SETUP --------------------------------
 LED SETUP
 CLEAR_SCREEN 2>/dev/null
-say "DHCP/DNS/AD profiler"
-if ! have nmap; then LED FAIL; say "nmap missing - abort"; ALERT "nmap not installed" 8 2>/dev/null; exit 1; fi
+SCREEN_WRITE "DHCP/DNS/AD profiler"
+if ! have nmap; then LED FAIL; SCREEN_WRITE "nmap missing - abort"; ALERT "nmap not installed" 8 2>/dev/null; exit 1; fi
 
 RUN="$LOOT_BASE/$(date -u +%Y%m%dT%H%M%SZ 2>/dev/null || echo run)_$$"
 mkdir -p "$RUN"
@@ -107,7 +106,7 @@ REPORT="$RUN/summary.txt"
 
 # --------------------------- PHASE: NETWORK UP ------------------------------
 LED SPECIAL
-say "DHCP lease (eth0)"
+SCREEN_WRITE "DHCP lease (eth0)"
 NETMODE DHCP_CLIENT 2>/dev/null
 WAIT_FOR_LINK 2>/dev/null            # framework: block until carrier is up (the race fix)
 # Bounded lease wait: WAIT_FOR_IP blocks forever, so keep our own timeout to fail
@@ -119,17 +118,17 @@ for _ in $(seq 1 "$DHCP_WAIT_SECS"); do
   sleep 1
 done
 if [ -z "$IP" ]; then
-  LED FAIL; say "No lease - 802.1X?"
+  LED FAIL; SCREEN_WRITE "No lease - 802.1X?"
   echo "FAILED: no DHCP lease on eth0 (NAC/802.1X, no DHCP, or dead drop)." > "$REPORT"
   ALERT "No DHCP lease - see loot" 8 2>/dev/null; exit 1
 fi
 GATEWAY=$(ip route 2>/dev/null | awk '/default/{print $3; exit}')
-say "IP $IP/$PREFIX"
+SCREEN_WRITE "IP $IP/$PREFIX"
 
 
 # --------------------------- PHASE: DHCP PROFILE ----------------------------
 LED STAGE1
-say "Profiling DHCP"
+SCREEN_WRITE "Profiling DHCP"
 CREATE_SPINNER "DHCP discover"
 nmap --script broadcast-dhcp-discover -e eth0 2>/dev/null > "$RUN/dhcp.txt"
 STOP_SPINNER
@@ -151,7 +150,7 @@ DNS1=$(echo "$DNS" | awk '{print $1}')
 LED STAGE2
 DCS="-"; ZONE="not attempted"; RECUR="-"; PTRN=0
 if [ -n "$DOMAIN" ]; then
-  say "AD lookup: $DOMAIN"
+  SCREEN_WRITE "AD lookup: $DOMAIN"
   CREATE_SPINNER "SRV records ($DOMAIN)"
   nmap --script dns-srv-enum --script-args "dns-srv-enum.domain=$DOMAIN" 2>/dev/null > "$RUN/ad_srv.txt"
   STOP_SPINNER
@@ -170,7 +169,7 @@ if [ -n "$DOMAIN" ]; then
     fi
   fi
 else
-  say "No domain advertised"
+  SCREEN_WRITE "No domain advertised"
 fi
 
 # DNS open-recursion check on the internal resolver.
@@ -198,7 +197,7 @@ fi
 scan_one() {                                    # scan_one <iface> <cidr> <label>
   local iface=$1 cidr=$2 label=$3 vsrv vdns vdom
   [ "$label" = "access" ] && return
-  say "$label: DHCP + naming"
+  SCREEN_WRITE "$label: DHCP + naming"
   nmap --script broadcast-dhcp-discover -e "$iface" 2>/dev/null > "$RUN/dhcp_$label.txt"
   vsrv=$(field "$RUN/dhcp_$label.txt" 'Server Identifier')
   vdns=$(field "$RUN/dhcp_$label.txt" 'Domain Name Server')
@@ -216,14 +215,14 @@ scan_one() {                                    # scan_one <iface> <cidr> <label
 }
 if [ "$SCAN_TAGGED_VLANS" = "1" ]; then
   LED STAGE3
-  say "Per-VLAN profiles"
+  SCREEN_WRITE "Per-VLAN profiles"
   run_over_vlans scan_one "$(network_cidr "$IP" "$PREFIX")"
 fi
 
 
 # --------------------------- PHASE: WRITE LOOT ------------------------------
 LED CLEANUP
-say "Writing loot"
+SCREEN_WRITE "Writing loot"
 {
   echo "=========================================================="
   echo " SHARK JACK DISPLAY - DHCP + DNS / AD PROFILE"
@@ -266,8 +265,8 @@ say "Writing loot"
 # ------------------------------ PHASE: DONE ---------------------------------
 LED FINISH
 CLEAR_SCREEN 2>/dev/null
-say "Profile complete"
-say "Domain: ${DOMAIN:-none}"
-say "AXFR: $ZONE"
+SCREEN_WRITE "Profile complete"
+SCREEN_WRITE "Domain: ${DOMAIN:-none}"
+SCREEN_WRITE "AXFR: $ZONE"
 ALERT "DHCP/DNS/AD done. Domain: ${DOMAIN:-none}. AXFR: $ZONE" 12 2>/dev/null
 exit 0

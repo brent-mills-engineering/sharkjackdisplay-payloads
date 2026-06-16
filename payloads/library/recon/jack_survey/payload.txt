@@ -55,7 +55,6 @@ VLAN_PROBE_IDS=""              # extra VIDs to test even if not seen, e.g. "99 2
 VLAN_DHCP_WAIT=6               # per-VLAN DHCP timeout (s) during the reach probe
 # ----------------------------------------------------------------------------
 
-say()  { SCREEN_WRITE "$*" 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 ip_to_int() { local IFS=.; set -- $1; echo $(( ($1<<24)|($2<<16)|($3<<8)|$4 )); }
@@ -116,8 +115,8 @@ record_check() {
 # ------------------------------ SETUP ---------------------------------------
 LED SETUP
 CLEAR_SCREEN 2>/dev/null
-say "Jack Survey"
-say "Waiting for link"
+SCREEN_WRITE "Jack Survey"
+SCREEN_WRITE "Waiting for link"
 
 RUN="$LOOT_BASE/$(date -u +%Y%m%dT%H%M%SZ 2>/dev/null || echo run)_$$"
 mkdir -p "$RUN"
@@ -163,8 +162,8 @@ fi
 
 if [ "$LINK" != "UP" ]; then
   LED FAIL
-  say "Link: DOWN"
-  say "No carrier"
+  SCREEN_WRITE "Link: DOWN"
+  SCREEN_WRITE "No carrier"
 
   {
     echo "=========================================================="
@@ -188,8 +187,8 @@ if [ "$LINK" != "UP" ]; then
   exit 0
 fi
 
-say "Link: UP"
-say "${SPEED:-?} Mbps ${DUPLEX:-?}"
+SCREEN_WRITE "Link: UP"
+SCREEN_WRITE "${SPEED:-?} Mbps ${DUPLEX:-?}"
 
 # --------------------------- PASSIVE DISCOVERY -------------------------------
 L_NAME="-"; L_PORT="-"; L_DESC="-"; L_MGMT="-"; L_VLAN="-"
@@ -198,7 +197,7 @@ DHCP_SRV_SEEN="-"; STP_SEEN="not seen"; ARPN=0
 
 if have tcpdump; then
   LED STAGE1
-  say "Passive discovery"
+  SCREEN_WRITE "Passive discovery"
   CREATE_SPINNER "LLDP/CDP/DHCP"
 
   PCAP="$RUN/passive.pcap"
@@ -257,7 +256,7 @@ MGMT="${L_MGMT:-$C_ADDR}"
 
 # ------------------------------- DHCP ---------------------------------------
 LED STAGE2
-say "DHCP request"
+SCREEN_WRITE "DHCP request"
 NETMODE DHCP_CLIENT 2>/dev/null
 WAIT_FOR_LINK 2>/dev/null
 
@@ -287,11 +286,11 @@ DHCP_RESULT="FAILED"
 
 if [ "$DHCP_RESULT" = "SUCCESS" ]; then
   record_check "PASS" "DHCP" "$IP/$PREFIX in ${DHCP_SECS}s"
-  say "DHCP: OK"
-  say "$IP/$PREFIX"
+  SCREEN_WRITE "DHCP: OK"
+  SCREEN_WRITE "$IP/$PREFIX"
 else
   record_check "WARN" "DHCP" "No lease after ${DHCP_WAIT_SECS}s"
-  say "DHCP: FAILED"
+  SCREEN_WRITE "DHCP: FAILED"
 fi
 
 DHCP_SERVER="$DHCP_SRV_SEEN"
@@ -352,7 +351,7 @@ HTTP_RESULT="not tested"
 
 if [ -n "$IP" ]; then
   LED STAGE3
-  say "Internet tests"
+  SCREEN_WRITE "Internet tests"
 
   if have nslookup; then
     nslookup "$INTERNET_TEST_HOST" > "$RUN/dns_test.txt" 2>&1
@@ -409,7 +408,7 @@ fi
 
 if [ "$PROBE_VLAN_REACH" = "1" ]; then
   LED STAGE4
-  say "VLAN reach probe"
+  SCREEN_WRITE "VLAN reach probe"
   if have ip && have udhcpc; then
     CREATE_SPINNER "Tagging VLANs (no scan)"
     lsmod 2>/dev/null | grep -q 8021q || modprobe 8021q 2>/dev/null
@@ -497,7 +496,7 @@ fi
 
 # ------------------------------ REPORT --------------------------------------
 LED CLEANUP
-say "Writing report"
+SCREEN_WRITE "Writing report"
 
 {
   echo "=========================================================="
@@ -604,21 +603,21 @@ case "$RESULT" in
   *) LED FAIL ;;
 esac
 
-say "Jack: $RESULT"
-say "Link: ${SPEED:-?} ${DUPLEX:-?}"
+SCREEN_WRITE "Jack: $RESULT"
+SCREEN_WRITE "Link: ${SPEED:-?} ${DUPLEX:-?}"
 
 if [ -n "$IP" ]; then
-  say "IP: $IP/$PREFIX"
+  SCREEN_WRITE "IP: $IP/$PREFIX"
 else
-  say "DHCP: FAILED"
+  SCREEN_WRITE "DHCP: FAILED"
 fi
 
-[ -n "$SWITCH" ] && [ "$SWITCH" != "-" ] && say "Sw: $SWITCH"
-[ -n "$PORT" ] && [ "$PORT" != "-" ] && say "Port: $PORT"
-say "VLAN: $VLAN_DISPLAY"
-[ "$VLANS_SEEN" != "-" ] && say "Trunk VLANs: $VLANS_SEEN"
-[ "$REACH_VLANS" != "-" ] && say "Reach: $REACH_VLANS"
-say "Net: DNS $DNS_RESULT HTTPS $HTTPS_RESULT"
+[ -n "$SWITCH" ] && [ "$SWITCH" != "-" ] && SCREEN_WRITE "Sw: $SWITCH"
+[ -n "$PORT" ] && [ "$PORT" != "-" ] && SCREEN_WRITE "Port: $PORT"
+SCREEN_WRITE "VLAN: $VLAN_DISPLAY"
+[ "$VLANS_SEEN" != "-" ] && SCREEN_WRITE "Trunk VLANs: $VLANS_SEEN"
+[ "$REACH_VLANS" != "-" ] && SCREEN_WRITE "Reach: $REACH_VLANS"
+SCREEN_WRITE "Net: DNS $DNS_RESULT HTTPS $HTTPS_RESULT"
 
 ALERT "Jack Survey $RESULT: ${IP:-no DHCP}, ${SPEED:-?}Mbps ${DUPLEX:-?}" 12 2>/dev/null
 exit 0

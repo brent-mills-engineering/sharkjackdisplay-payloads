@@ -33,7 +33,6 @@ LOOT_BASE="/root/loot/port_id"
 # ----------------------------------------------------------------------------
 
 # ============================ helpers =======================================
-say()  { SCREEN_WRITE "$*" 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 lldp_field() {
@@ -66,11 +65,11 @@ decode() {  # decode the current pcap into SWITCH/PORT (+ loot fields); sets glo
 # ------------------------------ PHASE: SETUP --------------------------------
 LED SETUP
 CLEAR_SCREEN 2>/dev/null
-say "Port ID Beacon"
+SCREEN_WRITE "Port ID Beacon"
 
 if ! have tcpdump; then
   LED FAIL
-  say "tcpdump missing"
+  SCREEN_WRITE "tcpdump missing"
   ALERT "Install tcpdump: opkg install tcpdump" 8 2>/dev/null
   exit 1
 fi
@@ -87,7 +86,7 @@ WAIT_FOR_LINK 2>/dev/null
 
 # ---------------------------- PHASE: LISTEN ---------------------------------
 LED SPECIAL
-say "Listening for LLDP/CDP"
+SCREEN_WRITE "Listening for LLDP/CDP"
 CREATE_SPINNER "Waiting for a frame"
 
 # Capture only LLDP (0x88cc) and CDP (Cisco multicast); poll and stop on first hit.
@@ -130,13 +129,13 @@ STOP_SPINNER
 CLEAR_SCREEN 2>/dev/null
 if [ -n "$SWITCH" ] || [ -n "$PORT" ]; then
   LED FINISH
-  say "Switch: ${SWITCH:-unknown}"
-  say "Port: ${PORT:-unknown}"
+  SCREEN_WRITE "Switch: ${SWITCH:-unknown}"
+  SCREEN_WRITE "Port: ${PORT:-unknown}"
   ALERT "Port ID: ${SWITCH:-?} ${PORT:-?}" 15 2>/dev/null
 else
   LED FAIL
-  say "No LLDP/CDP heard"
-  say "in ${WAIT_SECS}s"
+  SCREEN_WRITE "No LLDP/CDP heard"
+  SCREEN_WRITE "in ${WAIT_SECS}s"
   ALERT "No LLDP/CDP: unmanaged switch, or LLDP/CDP disabled" 12 2>/dev/null
 fi
 exit 0

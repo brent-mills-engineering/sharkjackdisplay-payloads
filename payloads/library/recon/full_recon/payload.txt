@@ -79,9 +79,6 @@ network_cidr() {            # network_cidr <ip> <prefix> -> "net/prefix"
 }
 have() { command -v "$1" >/dev/null 2>&1; }
 
-# Quiet wrappers so a missing display binary never aborts the scan.
-say()  { SCREEN_WRITE "$*" 2>/dev/null; }      # one line to the screen
-
 # Randomize eth0's MAC in raw shell (no DuckyScript command exists for this).
 # Prefer macchanger; otherwise build a random locally-administered unicast MAC.
 randomize_mac() {
@@ -171,11 +168,11 @@ scan_subnet() {                                 # scan_subnet <iface> <cidr> <ba
 # ------------------------------ PHASE: SETUP --------------------------------
 LED SETUP
 CLEAR_SCREEN 2>/dev/null
-say "Wired recon starting"
+SCREEN_WRITE "Wired recon starting"
 
 if ! have nmap; then
   LED FAIL
-  say "nmap missing - abort"
+  SCREEN_WRITE "nmap missing - abort"
   ALERT "nmap not installed on this device" 8 2>/dev/null
   exit 1
 fi
@@ -189,12 +186,12 @@ VLANF="$RUN/vlans.txt"
 : > "$VLANF"; : > "$HOSTSF"; : > "$PORTSF"   # accumulators (native + tagged VLANs)
 
 # Optional: identity + clock hygiene before we touch the wire.
-[ "$RANDOMIZE_MAC_ADDR" = "1" ] && { say "Randomizing MAC"; randomize_mac; }
+[ "$RANDOMIZE_MAC_ADDR" = "1" ] && { SCREEN_WRITE "Randomizing MAC"; randomize_mac; }
 
 
 # --------------------------- PHASE: NETWORK UP ------------------------------
 LED SPECIAL
-say "Bringing up eth0 ($NET_MODE)"
+SCREEN_WRITE "Bringing up eth0 ($NET_MODE)"
 case "$NET_MODE" in
   STATIC) NETMODE STATIC IP_${STATIC_IP} SUBNET_${STATIC_SUBNET} GATEWAY_${STATIC_GATEWAY} 2>/dev/null ;;
   AUTO)   NETMODE AUTO 2>/dev/null ;;
@@ -215,8 +212,8 @@ done
 
 if [ -z "$IP" ]; then
   LED FAIL
-  say "No lease on eth0"
-  say "NAC / 802.1X? dead port?"
+  SCREEN_WRITE "No lease on eth0"
+  SCREEN_WRITE "NAC / 802.1X? dead port?"
   { echo "FAILED: no IPv4 on eth0 after ${DHCP_WAIT_SECS}s (NET_MODE=$NET_MODE)."
     echo "Likely 802.1X/NAC, no DHCP, or a dead drop."; } > "$REPORT"
   ALERT "No network on eth0 - see loot" 8 2>/dev/null
@@ -225,8 +222,8 @@ fi
 
 GATEWAY=$(ip route 2>/dev/null | awk '/default/{print $3; exit}')
 ACCESS_CIDR=$(network_cidr "$IP" "$PREFIX")
-say "IP $IP/$PREFIX"
-say "GW $GATEWAY"
+SCREEN_WRITE "IP $IP/$PREFIX"
+SCREEN_WRITE "GW $GATEWAY"
 
 # Best-effort clock sync so the loot timestamp is real (non-fatal if offline).
 ENABLE_NTP 2>/dev/null
@@ -234,7 +231,7 @@ ENABLE_NTP 2>/dev/null
 
 # --------------------------- PHASE: ROUTER ----------------------------------
 LED STAGE1
-say "Profiling gateway"
+SCREEN_WRITE "Profiling gateway"
 ROUTER_OS="-"
 if [ -n "$GATEWAY" ]; then
   CREATE_SPINNER "Scanning router $GATEWAY"
@@ -254,7 +251,7 @@ fi
 
 # ----------------------- PHASE: HOST DISCOVERY ------------------------------
 LED STAGE2
-say "Discovering hosts"
+SCREEN_WRITE "Discovering hosts"
 CREATE_SPINNER "ARP/ping sweep $ACCESS_CIDR"
 # On a local segment, nmap uses ARP for discovery: reliable even when ICMP is
 # filtered. We scan the whole access subnet derived from our own lease.
@@ -263,7 +260,7 @@ STOP_SPINNER
 awk '/Status: Up/{print $2}' "$RUN/discovery.gnmap" 2>/dev/null | sort -u > "$RUN/up_hosts.txt"
 UPCOUNT=$(wc -l < "$RUN/up_hosts.txt" 2>/dev/null | tr -d ' ')
 [ -z "$UPCOUNT" ] && UPCOUNT=0
-say "$UPCOUNT hosts up"
+SCREEN_WRITE "$UPCOUNT hosts up"
 
 
 # --------------------- PHASE: SERVICE / PORT SCAN ---------------------------
@@ -283,7 +280,7 @@ parse_services "$RUN/services.nmap"
 
 # --------------------------- PHASE: VLANs -----------------------------------
 LED STAGE4
-say "Mapping VLANs"
+SCREEN_WRITE "Mapping VLANs"
 {
   echo "Access subnet (untagged): $ACCESS_CIDR   [our lease: $IP/$PREFIX]"
 } >> "$VLANF"
@@ -354,7 +351,7 @@ fi
 
 # --------------------------- PHASE: WRITE LOOT ------------------------------
 LED CLEANUP
-say "Writing loot"
+SCREEN_WRITE "Writing loot"
 # Total live hosts across the native VLAN + any scanned tagged VLANs.
 UPCOUNT=$(wc -l < "$HOSTSF" 2>/dev/null | tr -d ' '); [ -z "$UPCOUNT" ] && UPCOUNT=0
 CREATE_PROGRESS_BAR "Building report" 2>/dev/null
@@ -436,8 +433,8 @@ LED FINISH
 PORTLINES=$(grep -cE '^    [0-9]+/(tcp|udp)' "$REPORT" 2>/dev/null)
 [ -z "$PORTLINES" ] && PORTLINES=0
 CLEAR_SCREEN 2>/dev/null
-say "Recon complete"
-say "Hosts: $UPCOUNT  Ports: $PORTLINES"
-say "Loot: ${RUN#/root/}"
+SCREEN_WRITE "Recon complete"
+SCREEN_WRITE "Hosts: $UPCOUNT  Ports: $PORTLINES"
+SCREEN_WRITE "Loot: ${RUN#/root/}"
 ALERT "Recon done: $UPCOUNT hosts, $PORTLINES open ports. Loot saved." 12 2>/dev/null
 exit 0

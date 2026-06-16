@@ -65,7 +65,6 @@ STABLE_SECS=60                  # a tunnel up at least this long counts as healt
 LOOT_BASE="/root/loot/debug_bridge"
 # ----------------------------------------------------------------------------
 
-say()  { SCREEN_WRITE "$*" 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 # Shared SSH options: key-only, pinned host key, dead-peer detection.
@@ -83,7 +82,7 @@ SSH_OPTS="-i $SSH_KEY -p $JUMP_PORT \
 # ------------------------------ SETUP ---------------------------------------
 LED SETUP
 CLEAR_SCREEN 2>/dev/null
-say "Remote Debug Bridge"
+SCREEN_WRITE "Remote Debug Bridge"
 
 RUN="$LOOT_BASE/$(date -u +%Y%m%dT%H%M%SZ 2>/dev/null || echo run)_$$"
 mkdir -p "$RUN"
@@ -92,7 +91,7 @@ LOG="$RUN/bridge.log"
 
 fail() {  # fail <screen msg> <report reason>
   LED FAIL
-  say "$1"
+  SCREEN_WRITE "$1"
   echo "FAILED: $2" > "$REPORT"
   ALERT "$2" 8 2>/dev/null
   exit 1
@@ -107,7 +106,7 @@ chmod 600 "$SSH_KEY" 2>/dev/null
 
 # --------------------------- PHASE: NETWORK UP ------------------------------
 LED SPECIAL
-say "Bringing up eth0 ($NET_MODE)"
+SCREEN_WRITE "Bringing up eth0 ($NET_MODE)"
 case "$NET_MODE" in
   STATIC) NETMODE STATIC IP_${STATIC_IP} SUBNET_${STATIC_SUBNET} GATEWAY_${STATIC_GATEWAY} 2>/dev/null ;;
   AUTO)   NETMODE AUTO 2>/dev/null ;;
@@ -125,11 +124,11 @@ done
 
 GW=$(ip route 2>/dev/null | awk '/default/{print $3; exit}')
 ENABLE_NTP 2>/dev/null               # best-effort clock sync for honest timestamps
-say "IP $IP/$PREFIX"
+SCREEN_WRITE "IP $IP/$PREFIX"
 
 # --------------------------- PHASE: REACHABILITY ----------------------------
 LED STAGE1
-say "Testing jump reachability"
+SCREEN_WRITE "Testing jump reachability"
 if ! ping -c 1 -W 3 "$JUMP_HOST" >/dev/null 2>&1; then
   echo "$(date -u 2>/dev/null) ping to $JUMP_HOST failed (ICMP may be filtered); trying SSH anyway" >> "$LOG"
 fi
@@ -161,7 +160,7 @@ fails=0
 while [ "$fails" -lt "$MAX_RETRIES" ]; do
   attempt=$((attempt + 1))
   LED STAGE2
-  say "Dial $((fails + 1))/$MAX_RETRIES"
+  SCREEN_WRITE "Dial $((fails + 1))/$MAX_RETRIES"
 
   STAMP=$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null)
   echo "$STAMP attempt $attempt (consecutive fails $fails)" >> "$LOG"
@@ -172,7 +171,7 @@ while [ "$fails" -lt "$MAX_RETRIES" ]; do
         "printf '%s\n' \"shark bridge up from $IP/$PREFIX at $STAMP\" >> ~/sharkjack-bridge.log" \
         >> "$LOG" 2>&1; then
     fails=$((fails + 1))
-    say "Jump unreachable"
+    SCREEN_WRITE "Jump unreachable"
     echo "$STAMP jump host unreachable or auth failed" >> "$LOG"
     back=$((RETRY_SLEEP * fails)); [ "$back" -gt 60 ] && back=60
     sleep "$back"
@@ -180,8 +179,8 @@ while [ "$fails" -lt "$MAX_RETRIES" ]; do
   fi
 
   LED ATTACK
-  say "Tunnel up"
-  say "$REMOTE_BIND:$REMOTE_PORT"
+  SCREEN_WRITE "Tunnel up"
+  SCREEN_WRITE "$REMOTE_BIND:$REMOTE_PORT"
 
   start=$(date +%s 2>/dev/null)
   ssh -N $SSH_OPTS -R "$REMOTE_BIND:$REMOTE_PORT:127.0.0.1:22" "$JUMP_USER@$JUMP_HOST" >> "$LOG" 2>&1
@@ -192,11 +191,11 @@ while [ "$fails" -lt "$MAX_RETRIES" ]; do
 
   if [ "$up" -ge "$STABLE_SECS" ]; then
     fails=0                                   # healthy session; a drop is transient
-    say "Reconnecting"
+    SCREEN_WRITE "Reconnecting"
     sleep "$RETRY_SLEEP"
   else
     fails=$((fails + 1))                      # fast failure; count it, back off
-    say "Drop, retrying"
+    SCREEN_WRITE "Drop, retrying"
     back=$((RETRY_SLEEP * fails)); [ "$back" -gt 60 ] && back=60
     sleep "$back"
   fi
@@ -204,8 +203,8 @@ done
 
 # ------------------------------ PHASE: ENDED --------------------------------
 LED FAIL
-say "Bridge ended"
-say "$MAX_RETRIES fails"
+SCREEN_WRITE "Bridge ended"
+SCREEN_WRITE "$MAX_RETRIES fails"
 {
   echo ""
   echo "---- FINAL STATUS ----------------------------------------"
