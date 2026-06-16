@@ -46,7 +46,6 @@ PASSIVE_VLAN_SECS=12          # passive 802.1Q listen window (needs tcpdump)
 
 # ============================ helpers =======================================
 say()  { SCREEN_WRITE "$*" 2>/dev/null; }
-spin_up()   { CREATE_SPINNER "$*" 2>/dev/null; }
 spin_down() { STOP_SPINNER 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 # ============================================================================
@@ -135,7 +134,7 @@ say "IP $IP/$PREFIX"
 # ----------------------------- PHASE: EGRESS --------------------------------
 LED STAGE1
 say "Testing egress"
-spin_up "Outbound TCP -> $EXT_IP"
+CREATE_SPINNER "Outbound TCP -> $EXT_IP"
 nmap -Pn --reason -T4 -p "$EGRESS_PORTS" "$EXT_IP" -oN "$RUN/egress_tcp.txt" >/dev/null 2>&1
 nmap -Pn -sU -p53 "$EXT_IP" -oN "$RUN/egress_udp53.txt" >/dev/null 2>&1
 spin_down
@@ -150,7 +149,7 @@ UDP53=$(awk '/^53\/udp/{print ($2=="open"||$2=="open|filtered")?"allowed":"block
 # -------------------------- PHASE: INTERNET PATH ----------------------------
 LED STAGE2
 say "Internet path"
-spin_up "HTTP/TLS path"
+CREATE_SPINNER "HTTP/TLS path"
 BODY=""
 if have wget; then BODY=$(wget -q -O- --timeout=6 "http://$EXT_HOST" 2>/dev/null)
 elif have curl; then BODY=$(curl -s -m 6 "http://$EXT_HOST" 2>/dev/null); fi
@@ -171,7 +170,7 @@ spin_down
 # ------------------------- PHASE: GW MGMT + SEGMENTATION --------------------
 LED STAGE3
 say "Gateway mgmt"
-spin_up "Gateway admin ports"
+CREATE_SPINNER "Gateway admin ports"
 nmap -Pn -T4 -p22,23,80,443,8443 "$GATEWAY" -oN "$RUN/gateway_mgmt.txt" >/dev/null 2>&1
 spin_down
 GW_OPEN=$(awk '/^[0-9]+\/tcp[ \t]+open/{split($1,a,"/"); printf "%s/%s ", a[1], $3}' "$RUN/gateway_mgmt.txt" 2>/dev/null)
@@ -180,7 +179,7 @@ SEG_RESULT="not tested (SEG_TARGETS empty)"
 if [ -n "$SEG_TARGETS" ]; then
   LED STAGE4
   say "Segmentation probe"
-  spin_up "Reaching SEG_TARGETS"
+  CREATE_SPINNER "Reaching SEG_TARGETS"
   # shellcheck disable=SC2086
   nmap -Pn -T4 -p "$SEG_PORTS" $SEG_TARGETS -oG "$RUN/segmentation.gnmap" -oN "$RUN/segmentation.txt" >/dev/null 2>&1
   spin_down

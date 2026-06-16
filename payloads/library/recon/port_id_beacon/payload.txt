@@ -34,7 +34,6 @@ LOOT_BASE="/root/loot/port_id"
 
 # ============================ helpers =======================================
 say()  { SCREEN_WRITE "$*" 2>/dev/null; }
-spin_up()   { CREATE_SPINNER "$*" 2>/dev/null; }
 spin_down() { STOP_SPINNER 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
@@ -90,7 +89,7 @@ WAIT_FOR_LINK 2>/dev/null
 # ---------------------------- PHASE: LISTEN ---------------------------------
 LED SPECIAL
 say "Listening for LLDP/CDP"
-spin_up "Waiting for a frame"
+CREATE_SPINNER "Waiting for a frame"
 
 # Capture only LLDP (0x88cc) and CDP (Cisco multicast); poll and stop on first hit.
 tcpdump -i eth0 -s 0 -w "$PCAP" 'ether proto 0x88cc or ether host 01:00:0c:cc:cc:cc' 2>/dev/null &

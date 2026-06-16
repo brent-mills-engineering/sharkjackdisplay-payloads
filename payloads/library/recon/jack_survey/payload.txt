@@ -57,7 +57,6 @@ VLAN_DHCP_WAIT=6               # per-VLAN DHCP timeout (s) during the reach prob
 
 say()  { SCREEN_WRITE "$*" 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
-spin_up()   { CREATE_SPINNER "$*" 2>/dev/null; }
 spin_down() { STOP_SPINNER 2>/dev/null; }
 
 ip_to_int() { local IFS=.; set -- $1; echo $(( ($1<<24)|($2<<16)|($3<<8)|$4 )); }
@@ -201,7 +200,7 @@ DHCP_SRV_SEEN="-"; STP_SEEN="not seen"; ARPN=0
 if have tcpdump; then
   LED STAGE1
   say "Passive discovery"
-  spin_up "LLDP/CDP/DHCP"
+  CREATE_SPINNER "LLDP/CDP/DHCP"
 
   PCAP="$RUN/passive.pcap"
   timeout "${PASSIVE_LISTEN_SECS}s" tcpdump -i eth0 -s 0 -w "$PCAP" 2>/dev/null
@@ -413,7 +412,7 @@ if [ "$PROBE_VLAN_REACH" = "1" ]; then
   LED STAGE4
   say "VLAN reach probe"
   if have ip && have udhcpc; then
-    spin_up "Tagging VLANs (no scan)"
+    CREATE_SPINNER "Tagging VLANs (no scan)"
     lsmod 2>/dev/null | grep -q 8021q || modprobe 8021q 2>/dev/null
     # Restore eth0's default route afterwards: udhcpc on a sub-iface repoints it.
     ORIG_DEFAULT=$(ip route show default 2>/dev/null | head -1)

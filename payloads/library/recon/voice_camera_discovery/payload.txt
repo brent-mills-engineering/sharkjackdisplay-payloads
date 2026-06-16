@@ -41,7 +41,6 @@ LOOT_BASE="/root/loot/voice_camera"
 
 # ============================ helpers =======================================
 say()  { SCREEN_WRITE "$*" 2>/dev/null; }
-spin_up()   { CREATE_SPINNER "$*" 2>/dev/null; }
 spin_down() { STOP_SPINNER 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
@@ -127,7 +126,7 @@ LED STAGE1
 say "Decoding capture"
 
 # --- Switch neighbors: LLDP (0x88cc) + CDP (Cisco multicast) ---
-spin_up "LLDP / CDP"
+CREATE_SPINNER "LLDP / CDP"
 tcpdump -nn -v -r "$PCAP" 'ether proto 0x88cc' 2>/dev/null > "$RUN/lldp.txt"
 tcpdump -nn -v -r "$PCAP" 'ether host 01:00:0c:cc:cc:cc' 2>/dev/null > "$RUN/cdp.txt"
 L_NAME=$(lldp_field "$RUN/lldp.txt" 'System Name TLV')
@@ -146,7 +145,7 @@ TAGGED_VLANS=$(tcpdump -e -nn -r "$PCAP" vlan 2>/dev/null | grep -oE 'vlan [0-9]
 [ -z "$TAGGED_VLANS" ]    && TAGGED_VLANS="-"
 
 # --- ONVIF / WS-Discovery (UDP 3702): the strongest camera/NVR signal ---
-spin_up "ONVIF / mDNS"
+CREATE_SPINNER "ONVIF / mDNS"
 tcpdump -nn -A -r "$PCAP" 'udp port 3702' 2>/dev/null > "$RUN/wsdiscovery.txt"
 tcpdump -nn -r "$PCAP" 'udp port 3702' 2>/dev/null \
   | sed -nE 's/^IP ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\.[0-9]+ >.*/\1/p' \
@@ -165,7 +164,7 @@ tcpdump -nn -A -r "$PCAP" 'udp port 1900' 2>/dev/null | grep -iE '^(SERVER|LOCAT
 spin_down
 
 # --- DHCP (67/68): vendor class (option 60) + hostnames as name enrichment ---
-spin_up "Passive ARP / DHCP"
+CREATE_SPINNER "Passive ARP / DHCP"
 tcpdump -nn -e -vv -r "$PCAP" '(udp port 67 or udp port 68)' 2>/dev/null > "$RUN/dhcp.txt"
 {
   grep -i 'Hostname Option' "$RUN/dhcp.txt" 2>/dev/null | sed 's/.*Hostname Option[^:]*: *//; s/^"//; s/".*$//'

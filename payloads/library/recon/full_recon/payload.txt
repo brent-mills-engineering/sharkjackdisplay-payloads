@@ -81,7 +81,6 @@ have() { command -v "$1" >/dev/null 2>&1; }
 
 # Quiet wrappers so a missing display binary never aborts the scan.
 say()  { SCREEN_WRITE "$*" 2>/dev/null; }      # one line to the screen
-spin_up()   { CREATE_SPINNER "$*" 2>/dev/null; }
 spin_down() { STOP_SPINNER 2>/dev/null; }
 
 # Randomize eth0's MAC in raw shell (no DuckyScript command exists for this).
@@ -239,7 +238,7 @@ LED STAGE1
 say "Profiling gateway"
 ROUTER_OS="-"
 if [ -n "$GATEWAY" ]; then
-  spin_up "Scanning router $GATEWAY"
+  CREATE_SPINNER "Scanning router $GATEWAY"
   if [ "$ROUTER_OS_DETECT" = "1" ]; then
     nmap -O $NMAP_TIMING --host-timeout 120s -oA "$RUN/router" "$GATEWAY" >/dev/null 2>&1
   else
@@ -257,7 +256,7 @@ fi
 # ----------------------- PHASE: HOST DISCOVERY ------------------------------
 LED STAGE2
 say "Discovering hosts"
-spin_up "ARP/ping sweep $ACCESS_CIDR"
+CREATE_SPINNER "ARP/ping sweep $ACCESS_CIDR"
 # On a local segment, nmap uses ARP for discovery: reliable even when ICMP is
 # filtered. We scan the whole access subnet derived from our own lease.
 nmap -sn $NMAP_TIMING -oA "$RUN/discovery" "$IP/$PREFIX" >/dev/null 2>&1
@@ -271,7 +270,7 @@ say "$UPCOUNT hosts up"
 # --------------------- PHASE: SERVICE / PORT SCAN ---------------------------
 LED STAGE3
 if [ "$UPCOUNT" -gt 0 ]; then
-  spin_up "Port/service scan x$UPCOUNT"
+  CREATE_SPINNER "Port/service scan x$UPCOUNT"
   nmap -sV $NMAP_TIMING --top-ports "$TOP_PORTS" --host-timeout "$HOST_TIMEOUT" \
        $EXTRA_NMAP -iL "$RUN/up_hosts.txt" -oA "$RUN/services" >/dev/null 2>&1
   spin_down
@@ -294,7 +293,7 @@ say "Mapping VLANs"
 # and the tagged VID list on a trunk. Needs tcpdump.
 PASSIVE_TAGS=""
 if have tcpdump; then
-  spin_up "Listening ${PASSIVE_VLAN_SECS}s for 802.1Q"
+  CREATE_SPINNER "Listening ${PASSIVE_VLAN_SECS}s for 802.1Q"
   timeout "${PASSIVE_VLAN_SECS}s" tcpdump -e -nn -i eth0 -c 300 vlan 2>/dev/null \
     | grep -oE 'vlan [0-9]+' | awk '{print $2}' | sort -un > "$RUN/_tags.txt"
   spin_down
@@ -321,7 +320,7 @@ if [ "$SCAN_TAGGED_VLANS" = "1" ]; then
     echo "Tagged-VLAN scan (VIDs: $CANDIDATES):" >> "$VLANF"
     for vid in $CANDIDATES; do
       LED STAGE5
-      spin_up "VLAN $vid: lease + scan"
+      CREATE_SPINNER "VLAN $vid: lease + scan"
       ip link add link eth0 name "eth0.$vid" type vlan id "$vid" 2>/dev/null
       if ! ip link show "eth0.$vid" >/dev/null 2>&1; then
         # Interface never came into being: the 802.1Q kernel module is missing.

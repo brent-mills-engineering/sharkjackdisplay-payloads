@@ -42,7 +42,6 @@ LOOT_BASE="/root/loot/direct_host"
 
 say()  { SCREEN_WRITE "$*" 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
-spin_up()   { CREATE_SPINNER "$*" 2>/dev/null; }
 spin_down() { STOP_SPINNER 2>/dev/null; }
 
 get_link_state() {
@@ -248,7 +247,7 @@ MDNS_NAMES=$(tr '\n' ' ' < "$RUN/mdns_names.txt" 2>/dev/null)
 # ------------------------------- SCAN HOST ----------------------------------
 LED STAGE3
 say "Profiling host"
-spin_up "Scanning $CLIENT_IP"
+CREATE_SPINNER "Scanning $CLIENT_IP"
 
 nmap -Pn $NMAP_TIMING --host-timeout "$HOST_TIMEOUT" -sV -O --osscan-guess \
   --script http-title -p "$PORTSET" "$CLIENT_IP" \

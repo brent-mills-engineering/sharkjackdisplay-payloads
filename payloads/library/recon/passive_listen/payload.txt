@@ -39,7 +39,6 @@ LOOT_BASE="/root/loot/passive"
 
 # ============================ helpers =======================================
 say()  { SCREEN_WRITE "$*" 2>/dev/null; }
-spin_up()   { CREATE_SPINNER "$*" 2>/dev/null; }
 spin_down() { STOP_SPINNER 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
@@ -99,7 +98,7 @@ LED STAGE1
 say "Decoding capture"
 
 # --- LLDP (0x88cc) and CDP (Cisco multicast 01:00:0c:cc:cc:cc) ---
-spin_up "Switch neighbors (LLDP/CDP)"
+CREATE_SPINNER "Switch neighbors (LLDP/CDP)"
 tcpdump -nn -v -r "$PCAP" 'ether proto 0x88cc' 2>/dev/null > "$RUN/lldp.txt"
 tcpdump -nn -v -r "$PCAP" 'ether host 01:00:0c:cc:cc:cc' 2>/dev/null > "$RUN/cdp.txt"
 spin_down
@@ -120,7 +119,7 @@ C_ADDR=$(grep -iA2 'Address' "$RUN/cdp.txt" 2>/dev/null | grep -oE '[0-9]+\.[0-9
 
 # --- Passive ARP -> live host list (no probes sent by us) ---
 # Captures (ip, mac) from "who-has X tell <ip>" (sender) and "<ip> is-at <mac>".
-spin_up "Passive ARP hosts"
+CREATE_SPINNER "Passive ARP hosts"
 tcpdump -nn -e -r "$PCAP" arp 2>/dev/null | awk '
   {
     mac=""
@@ -134,7 +133,7 @@ ARPN=$(wc -l < "$RUN/arp_hosts.tsv" 2>/dev/null | tr -d ' '); [ -z "$ARPN" ] && 
 spin_down
 
 # --- mDNS / SSDP / NetBIOS / DHCP responders ---
-spin_up "mDNS / SSDP / NetBIOS"
+CREATE_SPINNER "mDNS / SSDP / NetBIOS"
 tcpdump -nn -r "$PCAP" 'udp port 5353' 2>/dev/null | grep -oE '[A-Za-z0-9_-]+\.(local|_tcp|_udp)' | sort -u > "$RUN/mdns.txt"
 tcpdump -nn -A -r "$PCAP" 'udp port 1900' 2>/dev/null | grep -iE '^(SERVER|LOCATION|ST|USN):' | sort -u > "$RUN/ssdp.txt"
 tcpdump -nn -r "$PCAP" 'udp port 137'  2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort -u > "$RUN/netbios_ips.txt"

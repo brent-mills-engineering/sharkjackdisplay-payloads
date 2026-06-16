@@ -51,7 +51,6 @@ PASSIVE_VLAN_SECS=12          # passive 802.1Q listen window (needs tcpdump)
 
 # ============================ helpers =======================================
 say()  { SCREEN_WRITE "$*" 2>/dev/null; }
-spin_up()   { CREATE_SPINNER "$*" 2>/dev/null; }
 spin_down() { STOP_SPINNER 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
@@ -220,7 +219,7 @@ scan_one() {                                    # scan_one <iface> <cidr> <label
 
 LED STAGE1
 say "Discovering + scanning"
-spin_up "Scan (native + tagged VLANs)"
+CREATE_SPINNER "Scan (native + tagged VLANs)"
 NATIVE_CIDR=$(network_cidr "$IP" "$PREFIX")
 run_over_vlans scan_one "$NATIVE_CIDR"
 spin_down
